@@ -1,0 +1,60 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/sw-model",
+    "crates/sw-protocol",
+    "crates/sw-crypto",
+    "crates/sw-client",
+    "crates/sw-graph",
+    "crates/sw-testkit",
+    "tools/xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Avarok-Cybersecurity/synchronized.work"
+
+# One version per crypto/codec dependency (SSOT). The RustCrypto PQ crates are the ones
+# citadel-app-signature and citadel-release-signature already use; every one of them is
+# no_std-capable and draws no randomness unless asked, so the pure crates stay
+# wasm32-unknown-unknown clean without getrandom.
+[workspace.dependencies]
+sw-model = { path = "crates/sw-model" }
+sw-protocol = { path = "crates/sw-protocol" }
+sw-crypto = { path = "crates/sw-crypto" }
+sw-client = { path = "crates/sw-client" }
+sw-graph = { path = "crates/sw-graph" }
+sw-testkit = { path = "crates/sw-testkit" }
+ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "zeroize"] }
+ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "hazmat"] }
+sha3 = { version = "0.11", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+hmac = { version = "0.13", default-features = false }
+hkdf = { version = "0.13", default-features = false }
+aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc"] }
+ciborium = { version = "0.2.2", default-features = false, features = ["std"] }
+unicode-normalization = { version = "0.1.25", default-features = false }
+zeroize = { version = "1.8", default-features = false }
+data-encoding = { version = "2.10", default-features = false, features = ["alloc"] }
+# Exact pins: the wasm test runner (`wasm-bindgen-test-runner`, installed in CI at the same
+# version) refuses a crate built against any other wasm-bindgen.
+wasm-bindgen-test = "=0.3.79"
+wasm-bindgen = "=0.2.129"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1

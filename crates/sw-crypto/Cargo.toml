@@ -1,0 +1,27 @@
+[package]
+name = "sw-crypto"
+description = "PURE. ML-DSA-65, ML-KEM-768, HKDF-SHA3-256 and AES-256-GCM for synchronized.work; randomness only through the Entropy port."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ml-dsa.workspace = true
+ml-kem.workspace = true
+sha3.workspace = true
+sha2.workspace = true
+hkdf.workspace = true
+aes-gcm.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+sw-testkit.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

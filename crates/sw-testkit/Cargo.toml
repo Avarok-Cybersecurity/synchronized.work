@@ -1,0 +1,15 @@
+[package]
+name = "sw-testkit"
+description = "DEV ONLY. Deterministic entropy, a fixed clock and the stand-in identity used by tests and fixture generation. Never a normal dependency of a shipped crate (the sbio gate refuses it)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+sw-crypto.workspace = true
+
+[lints]
+workspace = true
