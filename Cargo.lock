@@ -648,6 +648,11 @@ dependencies = [
 [[package]]
 name = "sw-client"
 version = "0.1.0"
+dependencies = [
+ "sw-model",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
 
 [[package]]
 name = "sw-crypto"
@@ -668,6 +673,10 @@ dependencies = [
 [[package]]
 name = "sw-graph"
 version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
 
 [[package]]
 name = "sw-model"

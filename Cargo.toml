@@ -22,12 +22,12 @@ repository = "https://github.com/Avarok-Cybersecurity/synchronized.work"
 # no_std-capable and draws no randomness unless asked, so the pure crates stay
 # wasm32-unknown-unknown clean without getrandom.
 [workspace.dependencies]
-sw-model = { path = "crates/sw-model" }
-sw-protocol = { path = "crates/sw-protocol" }
-sw-crypto = { path = "crates/sw-crypto" }
-sw-client = { path = "crates/sw-client" }
-sw-graph = { path = "crates/sw-graph" }
-sw-testkit = { path = "crates/sw-testkit" }
+sw-model = { path = "crates/sw-model", version = "0.1.0" }
+sw-protocol = { path = "crates/sw-protocol", version = "0.1.0" }
+sw-crypto = { path = "crates/sw-crypto", version = "0.1.0" }
+sw-client = { path = "crates/sw-client", version = "0.1.0" }
+sw-graph = { path = "crates/sw-graph", version = "0.1.0" }
+sw-testkit = { path = "crates/sw-testkit", version = "0.1.0" }
 ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "zeroize"] }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "hazmat"] }
 sha3 = { version = "0.11", default-features = false }

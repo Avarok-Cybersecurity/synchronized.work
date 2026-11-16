@@ -1,5 +1,6 @@
 [package]
 name = "sw-graph"
+description = "PURE. The framework-free layout core: tidy-tree positions computed once for React Flow and the Citadel App canvas, spring motion, the draw-list IR and hit-testing."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-bindgen.workspace = true
 
 [lints]
 workspace = true

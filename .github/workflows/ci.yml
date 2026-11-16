@@ -1,0 +1,74 @@
+# Every pull request and every push to main (design §11.1). No deploy here: lane S2 owns
+# deploy.yml. The toolchain, components and the wasm32 target come from rust-toolchain.toml.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  # The wasm test runner must match the wasm-bindgen pinned in Cargo.toml.
+  WASM_BINDGEN_VERSION: 0.2.129
+  PURE_CRATES: -p sw-model -p sw-protocol -p sw-crypto -p sw-client -p sw-graph
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo clippy $PURE_CRATES --all-targets --locked --target wasm32-unknown-unknown -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - run: cargo test --workspace --locked
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install wasm-bindgen-test-runner
+        run: cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION"
+      - name: Build every pure crate for wasm32-unknown-unknown (never WASI)
+        run: cargo check $PURE_CRATES --locked --target wasm32-unknown-unknown
+      - name: Run the pure crates' tests on wasm32 (node)
+        run: cargo test $PURE_CRATES --locked --target wasm32-unknown-unknown
+
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - name: file-length (every source file <= 250 lines)
+        run: cargo run --locked -p xtask -- file-length
+      - name: sbio (no I/O or OS-randomness dependency in a pure crate)
+        run: cargo run --locked -p xtask -- sbio
+      - name: conformance (fixtures canonical, generated, digested, verified)
+        run: cargo run --locked -p xtask -- conformance
+
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources
