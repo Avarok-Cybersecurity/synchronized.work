@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 sw-testkit.workspace = true
+sw-crypto.workspace = true
 
 [lints]
 workspace = true

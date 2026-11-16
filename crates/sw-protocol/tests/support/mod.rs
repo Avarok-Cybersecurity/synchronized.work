@@ -8,14 +8,13 @@ use sw_protocol::ports::MessageSigner;
 use sw_protocol::replay::ReplayGuard;
 use sw_protocol::sealed::Sealed;
 use sw_protocol::signed::SwMessage;
-use sw_protocol::wire::Bytes;
 use sw_testkit::{Cast, FIXTURE_NOW_MS as NOW, LabelledEntropy, StandInIdentityPort as ID};
 
 pub fn status() -> Payload {
     Payload::StatusUpdate(StatusUpdate {
         agent_id: "agent-1".into(),
         task_id: "task-1".into(),
-        lane: "working".into(),
+        lane: sw_model::Lane::Running,
         blockers: vec![],
         harness: "h".into(),
     })
@@ -58,7 +57,10 @@ pub fn at_node(
     replay: &mut ReplayGuard,
     from: u64,
 ) -> Result<(), Refusal> {
-    let v = Verifier::Node { session_cid: from };
+    let v = Verifier::Node {
+        session_cid: from,
+        sign_in_issuer: cast.sign_in_issuer.public_key(),
+    };
     verify(m, &cast.node_directory(), &ID, replay, v, NOW).map(|_| ())
 }
 
@@ -80,21 +82,6 @@ pub fn revoke(cast: &Cast) -> Payload {
         pubkeys: None,
         kid: Some(sw_crypto::kid_of(cast.alice_device.public_key())),
         assertion: None,
-    })
-}
-
-pub fn enrol_by_assertion(cast: &Cast, cid: u64) -> Payload {
-    Payload::Enrol(Enrol {
-        op: EnrolOp::Enrol,
-        epoch: 1,
-        endpoint_cid: Some(cid),
-        kind: Some(sw_model::EndpointKind::Controller),
-        pubkeys: Some(PubKeys {
-            sign: Bytes(cast.bob_controller.public_key().to_vec()),
-            seal: None,
-        }),
-        kid: None,
-        assertion: Some(Bytes(vec![0x01, 0x02])),
     })
 }
 

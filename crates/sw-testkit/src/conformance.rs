@@ -15,10 +15,11 @@ use sw_protocol::signed::{SwMessage, signed_message};
 
 use crate::kat::Kat;
 use crate::model::{hex, to_model, unhex};
+use crate::sign_in_kat::{SignInKat, enrol_by_assertion};
 use crate::{ReplayedEntropy, StandInIdentityPort};
 
 /// Judges one fixture file. An `invalid-*` fixture passes only if it is refused.
-pub fn check(file: &str, fixture: &str, kat: &Kat) -> Result<(), String> {
+pub fn check(file: &str, fixture: &str, kat: &Kat, sign_in: &SignInKat) -> Result<(), String> {
     let j: Json = serde_json::from_str(fixture).map_err(|e| format!("{file}: {e}"))?;
     let field = |k: &str| {
         j.get(k)
@@ -27,7 +28,7 @@ pub fn check(file: &str, fixture: &str, kat: &Kat) -> Result<(), String> {
     };
     let bytes = unhex(field("cbor_hex")?)?;
     let model = j.get("model").ok_or(format!("{file}: no model"))?;
-    let judged = judge(&j, &bytes, model, kat);
+    let judged = judge(&j, &bytes, model, kat, sign_in);
     match (file.starts_with("invalid-"), judged) {
         (false, Ok(())) | (true, Err(_)) => Ok(()),
         (false, Err(e)) => Err(format!("{file}: {e}")),
@@ -35,7 +36,13 @@ pub fn check(file: &str, fixture: &str, kat: &Kat) -> Result<(), String> {
     }
 }
 
-fn judge(j: &Json, bytes: &[u8], model: &Json, kat: &Kat) -> Result<(), String> {
+fn judge(
+    j: &Json,
+    bytes: &[u8],
+    model: &Json,
+    kat: &Kat,
+    sign_in: &SignInKat,
+) -> Result<(), String> {
     let value = cbor::decode(bytes).map_err(|e| format!("not canonical CBOR: {e}"))?;
     if &to_model(&value)? != model {
         return Err("decodes to something other than its model".into());
@@ -44,7 +51,7 @@ fn judge(j: &Json, bytes: &[u8], model: &Json, kat: &Kat) -> Result<(), String> 
         j.get("typ").and_then(Json::as_u64),
         j.get("name").and_then(Json::as_str),
     ) {
-        (Some(typ), _) => message(bytes, typ, j, kat),
+        (Some(typ), _) => message(bytes, typ, j, kat, sign_in),
         (None, Some("p2p-envelope")) => {
             let inner = decode_p2p(bytes).map_err(|e| format!("p2p envelope: {e}"))?;
             let msg = round_trip(&inner)?;
@@ -97,7 +104,7 @@ fn endpoint_aud(body: &Body) -> Result<u64, String> {
     }
 }
 
-fn message(bytes: &[u8], typ: u64, j: &Json, kat: &Kat) -> Result<(), String> {
+fn message(bytes: &[u8], typ: u64, j: &Json, kat: &Kat, sign_in: &SignInKat) -> Result<(), String> {
     let msg = round_trip(bytes)?;
     let SwMessage::Signed { typ: outer, signed } = &msg else {
         let SwMessage::Unsigned(p) = &msg else {
@@ -114,6 +121,7 @@ fn message(bytes: &[u8], typ: u64, j: &Json, kat: &Kat) -> Result<(), String> {
     let dir = kat.node_directory();
     let node = Verifier::Node {
         session_cid: body.from,
+        sign_in_issuer: sign_in.issuer.public_key(),
     };
     verify(
         &msg,
@@ -163,8 +171,7 @@ fn prompt_kat(sealed: &sw_protocol::sealed::Sealed, j: &Json, kat: &Kat) -> Resu
     if hex(ss.as_slice()) != want("shared_secret_hex")? {
         return Err("shared secret differs from the KAT".into());
     }
-    let key = sw_crypto::hkdf_sha256(ss.as_slice(), sw_protocol::sealed::SEAL_INFO)
-        .map_err(|e| e.to_string())?;
+    let key = sw_protocol::sealed::seal_key(ss.as_slice()).map_err(|e| format!("{e:?}"))?;
     if hex(&key) != want("aead_key_hex")? {
         return Err("AEAD key differs from the KAT".into());
     }
@@ -188,4 +195,25 @@ fn prompt_kat(sealed: &sw_protocol::sealed::Sealed, j: &Json, kat: &Kat) -> Resu
     (again == *sealed && entropy.exhausted())
         .then_some(())
         .ok_or("resealing does not reproduce the fixture".into())
+}
+
+/// `ENROL` by assertion with the published sign-in assertion: the KAT Device, unknown to the
+/// node, enrols itself under the KAT Person, and the gate returns the assertion's claims.
+pub fn check_sign_in_enrol(kat: &Kat, sign_in: &SignInKat) -> Result<(), String> {
+    let msg = enrol_by_assertion(kat, &sign_in.blob);
+    let verified = verify(
+        &msg,
+        &crate::Directory::default(),
+        &StandInIdentityPort,
+        &mut ReplayGuard::empty(),
+        Verifier::Node {
+            session_cid: kat.device_cid,
+            sign_in_issuer: sign_in.issuer.public_key(),
+        },
+        crate::FIXTURE_NOW_MS,
+    )
+    .map_err(|r| format!("enrol by assertion refused: {r:?}"))?;
+    (verified.sign_in.as_ref() == Some(&sign_in.claims))
+        .then_some(())
+        .ok_or("the gate did not return the assertion's claims".into())
 }

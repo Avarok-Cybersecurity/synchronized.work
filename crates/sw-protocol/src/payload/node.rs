@@ -1,6 +1,6 @@
 //! Payloads between an Endpoint and the node (types 11, 13, 14, 15, 16). Text keys.
 
-use sw_model::{Cid, EndpointKind};
+use sw_model::{Cid, EndpointKind, IdFp};
 
 use crate::WireError;
 use crate::wire::{Bytes, Raw, wire_str, wire_text};
@@ -70,12 +70,36 @@ impl Enrol {
 }
 
 wire_text! {
+    /// What an `EVENT` carries: the type's payload after the visibility filter, so kept as a
+    /// map rather than re-validated as that type (a filtered `create` may lack its `title`).
+    pub struct EventBody {
+        typ: u8,
+        from: Cid,
+        iss: IdFp,
+        payload: Raw,
+    }
+    check = EventBody::check;
+}
+
+impl EventBody {
+    /// The types the ProjectDO projects into its log.
+    pub const TYPES: [u8; 6] = [2, 3, 7, 8, 9, 10];
+
+    fn check(&self) -> Result<(), WireError> {
+        if !Self::TYPES.contains(&self.typ) {
+            return Err(WireError::UnknownCode("EventBody.typ"));
+        }
+        self.payload.expect_map()
+    }
+}
+
+wire_text! {
     /// 13 `EVENT`: node → viewers, the visibility-filtered projection. Unsigned.
     pub struct Event {
         project_id: String,
         cursor: u64,
         kind: String,
-        body: Raw,
+        body: EventBody,
     }
 }
 

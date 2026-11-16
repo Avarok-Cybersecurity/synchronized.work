@@ -2,6 +2,7 @@
 
 mod conformance;
 mod file_length;
+mod pin;
 mod sbio;
 mod workspace;
 
@@ -20,7 +21,7 @@ fn main() -> ExitCode {
         Some("file-length") => file_length::run(&root),
         Some("sbio") => sbio::run(&root),
         Some("conformance") => conformance::run(&root, &args[1..]),
-        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir>]>".to_owned()),
+        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>]>".to_owned()),
     };
     match result {
         Ok(verdict) => {

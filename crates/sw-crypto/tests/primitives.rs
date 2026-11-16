@@ -92,22 +92,27 @@ fn aead_refuses_tampering_and_wrong_aad() {
 
 #[test]
 fn hkdf_separates_by_info() {
-    let a = hkdf_sha256(b"ikm", b"sw/seal/1").unwrap();
-    let b = hkdf_sha256(b"ikm", b"sw/seal/2").unwrap();
+    let a = hkdf_sha3_256(b"ikm", b"sw/seal/1").unwrap();
+    let b = hkdf_sha3_256(b"ikm", b"sw/seal/2").unwrap();
     assert_ne!(a, b);
-    assert_eq!(a, hkdf_sha256(b"ikm", b"sw/seal/1").unwrap());
-    // RFC 5869 test case 3 (SHA-256, zero-length salt and info), first 32 bytes.
-    let okm = hkdf_sha256(&[0x0b; 22], b"").unwrap();
-    assert_eq!(okm[..4], [0x8d, 0xa4, 0xe7, 0x75]);
+    assert_eq!(a, hkdf_sha3_256(b"ikm", b"sw/seal/1").unwrap());
+    // RFC 5869 test case 3's inputs (22 x 0x0b, no salt, no info) under HMAC-SHA3-256,
+    // computed independently with Python's hmac + hashlib.sha3_256.
+    let okm = hkdf_sha3_256(&[0x0b; 22], b"").unwrap();
+    assert_eq!(
+        okm[..4],
+        [0xbc, 0x13, 0x42, 0xcd],
+        "HKDF-SHA3-256 known answer"
+    );
 }
 
 #[test]
-fn kid_is_sha256_of_the_key() {
-    assert_eq!(kid_of(b"abc"), sha256(b"abc"));
+fn kid_is_sha3_256_of_the_key() {
+    assert_eq!(kid_of(b"abc"), sha3_256(b"abc"));
     assert_eq!(
-        sha256(b"abc")[..4],
-        [0xba, 0x78, 0x16, 0xbf],
-        "SHA-256 known answer"
+        sha3_256(b"abc")[..4],
+        [0x3a, 0x98, 0x5d, 0xa7],
+        "SHA3-256 known answer"
     );
     assert_eq!(
         sha3_256(b"")[..4],

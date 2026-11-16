@@ -1,8 +1,10 @@
 use sw_crypto::Kid;
 use sw_model::{Cid, EndpointKind, IdFp};
 
+use super::AssertionRefusal;
 use crate::WireError;
 use crate::body::Body;
+use crate::ports::SignInClaims;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyRole {
@@ -28,10 +30,14 @@ pub trait KeyDirectory {
 
 /// Who is verifying.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Verifier {
+pub enum Verifier<'a> {
     /// The node: `from` must be the session's CID; it accepts its own audience, and an
-    /// Endpoint audience only for the types it relays (4, 5, 6, 17).
-    Node { session_cid: Cid },
+    /// Endpoint audience only for the types it relays (4, 5, 6, 17). `sign_in_issuer` is
+    /// work.avarok.net's pinned server identity key, the only issuer of `ENROL` assertions.
+    Node {
+        session_cid: Cid,
+        sign_in_issuer: &'a [u8],
+    },
     /// A Device or Controller: only messages addressed to its own CID.
     Endpoint { cid: Cid },
 }
@@ -60,6 +66,8 @@ pub enum Refusal {
     TypMismatch,
     /// A type that never travels over P2P arrived there.
     NotP2pEligible,
+    /// `ENROL` by assertion whose assertion does not enrol this key here.
+    Assertion(AssertionRefusal),
 }
 
 impl From<WireError> for Refusal {
@@ -74,8 +82,7 @@ pub struct Verified {
     pub body: Body,
     pub kid: Kid,
     pub signal_id: [u8; 32],
-    /// For `ENROL` by assertion only: the gate checked the enrolling Device's own signature;
-    /// the node must still verify this sign-in assertion (identity contract §7) and that its
-    /// identity's `id_fp` is `body.iss` before enrolling anything.
-    pub assertion_to_verify: Option<Vec<u8>>,
+    /// For `ENROL` by assertion only: the assertion the gate accepted (pinned issuer,
+    /// audience, expiry, device kid, and `id_fp(identity) == body.iss` all checked).
+    pub sign_in: Option<SignInClaims>,
 }

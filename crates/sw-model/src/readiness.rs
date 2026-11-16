@@ -2,21 +2,50 @@
 //! lanes model admits work: a Person's own `sw-mcp` admitting its waiting lanes, and the
 //! ProjectDO ordering cross-person join requests under an `aware` Task.
 
-use crate::Id128;
-
-/// A declared reason a lane cannot proceed now.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Blocker {
+/// Why a lane cannot proceed now (sw-wire contract §3 `Blocker.kind`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum BlockerKind {
+    Human,
+    Dependency,
     Lock,
     Disk,
-    Human,
-    Dependency(Id128),
     RateLimit,
-    Other(String),
 }
 
-/// Readiness in thousandths: an exact integer so every party ranks identically on every
-/// target (design §2.4 writes it as an f32 in [0, 1]; the values are the same).
+impl BlockerKind {
+    /// Design §2.4's table, in permille: the one place a kind's readiness is written.
+    pub fn readiness(self) -> Readiness {
+        match self {
+            Self::Human => Readiness::HUMAN,
+            Self::Dependency => Readiness::DEPENDENCY,
+            Self::Lock | Self::Disk | Self::RateLimit => Readiness::RESOURCE,
+        }
+    }
+}
+
+/// A declared reason a lane cannot proceed now. `task_id` names the Task waited on, and is
+/// present exactly when `kind` is `Dependency`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Blocker {
+    pub kind: BlockerKind,
+    pub text: String,
+    pub task_id: Option<String>,
+}
+
+impl Blocker {
+    pub const MAX_TEXT_BYTES: usize = 280;
+
+    /// The shape rules every party enforces: text at most 280 bytes, `task_id` iff
+    /// `Dependency`.
+    pub fn is_well_formed(&self) -> bool {
+        self.text.len() <= Self::MAX_TEXT_BYTES
+            && (self.kind == BlockerKind::Dependency) == self.task_id.is_some()
+    }
+}
+
+/// Readiness as a permille integer, `0..=1000`: exact, so every party ranks identically on
+/// every target, and the wire carries no floats (sw-wire contract §3 `Readiness`; design
+/// §2.4's f32 in [0, 1] scaled by 1000).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Readiness(u16);
 
@@ -26,29 +55,24 @@ impl Readiness {
     pub const DEPENDENCY: Self = Self(200);
     pub const RESOURCE: Self = Self(500);
 
-    pub fn from_milli(milli: u16) -> Option<Self> {
-        (milli <= 1000).then_some(Self(milli))
+    pub fn from_permille(permille: u16) -> Option<Self> {
+        (permille <= 1000).then_some(Self(permille))
     }
 
-    pub fn milli(self) -> u16 {
+    pub fn permille(self) -> u16 {
         self.0
     }
 }
 
-/// `readiness(agent)`: 1 with no blockers, else the minimum over its blockers.
-/// `dependency_done` answers whether a `dependency(t)` blocker's Task is done; a done
-/// dependency no longer blocks. `Other` is treated like a resource wait (0.5): it is a
-/// declared, non-human obstacle.
-pub fn readiness(blockers: &[Blocker], dependency_done: impl Fn(Id128) -> bool) -> Readiness {
+/// `readiness(agent)`: 1000 with no blockers, else the minimum over its blockers.
+/// `dependency_done` answers whether a dependency blocker's Task is done; a done dependency
+/// no longer blocks.
+pub fn readiness(blockers: &[Blocker], dependency_done: impl Fn(&str) -> bool) -> Readiness {
     blockers
         .iter()
-        .map(|b| match b {
-            Blocker::Human => Readiness::HUMAN,
-            Blocker::Dependency(t) if dependency_done(*t) => Readiness::READY,
-            Blocker::Dependency(_) => Readiness::DEPENDENCY,
-            Blocker::Lock | Blocker::Disk | Blocker::RateLimit | Blocker::Other(_) => {
-                Readiness::RESOURCE
-            }
+        .map(|b| match (&b.kind, &b.task_id) {
+            (BlockerKind::Dependency, Some(t)) if dependency_done(t) => Readiness::READY,
+            (kind, _) => kind.readiness(),
         })
         .min()
         .unwrap_or(Readiness::READY)

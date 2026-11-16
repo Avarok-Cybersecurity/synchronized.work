@@ -1,10 +1,10 @@
 //! `Sealed {1: kem, 2: rcpt, 3: ct, 4: aead, 5: n, 6: enc}`: a signal's inner map encrypted to
-//! one Device's ML-KEM-768 key (sw-wire contract §2). `key = HKDF-SHA-256(ss, "sw/seal/1")`;
-//! `enc = AES-256-GCM(key, n, aad = ∅, canonical CBOR of the inner map)`; `rcpt = SHA-256(ek)`.
+//! one Device's ML-KEM-768 key (sw-wire contract §2). `key = HKDF-SHA3-256(ss, "sw/seal/1")`;
+//! `enc = AES-256-GCM(key, n, aad = ∅, canonical CBOR of the inner map)`; `rcpt = SHA3-256(ek)`.
 //! The inner map carries `aud` (the Device CID) plus the type's payload fields.
 
 use sw_crypto::{
-    AEAD_NONCE_LEN, Entropy, KEM_CIPHERTEXT_LEN, KemSecretKey, aead_open, aead_seal, hkdf_sha256,
+    AEAD_NONCE_LEN, Entropy, KEM_CIPHERTEXT_LEN, KemSecretKey, aead_open, aead_seal, hkdf_sha3_256,
     kem_encapsulate, kid_of,
 };
 
@@ -18,13 +18,18 @@ pub const SEAL_INFO: &[u8] = b"sw/seal/1";
 wire_map! {
     pub struct Sealed {
         1 => kem: String,
-        /// `SHA-256` of the Device's encapsulation key.
+        /// `SHA3-256` of the Device's encapsulation key.
         2 => rcpt: [u8; 32],
         3 => ct: Bytes,
         4 => aead: String,
         5 => n: [u8; 12],
         6 => enc: Bytes,
     }
+}
+
+/// The AEAD key from an ML-KEM shared secret: `HKDF-SHA3-256(salt = none, ss, "sw/seal/1")`.
+pub fn seal_key(shared_secret: &[u8]) -> Result<[u8; 32], SealError> {
+    hkdf_sha3_256(shared_secret, SEAL_INFO).map_err(|_| SealError::Malformed)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,7 +52,7 @@ impl Sealed {
     ) -> Result<Self, SealError> {
         let (ct, ss) =
             kem_encapsulate(encapsulation_key, entropy).map_err(|_| SealError::Malformed)?;
-        let key = hkdf_sha256(ss.as_slice(), SEAL_INFO).map_err(|_| SealError::Malformed)?;
+        let key = seal_key(ss.as_slice())?;
         let mut n = [0u8; AEAD_NONCE_LEN];
         entropy.fill(&mut n);
         let plaintext = cbor::encode(&inner.to_value()).map_err(SealError::Wire)?;
@@ -82,7 +87,7 @@ impl Sealed {
         let ss = key
             .decapsulate(&self.ct.0)
             .map_err(|_| SealError::Malformed)?;
-        let aead_key = hkdf_sha256(ss.as_slice(), SEAL_INFO).map_err(|_| SealError::Malformed)?;
+        let aead_key = seal_key(ss.as_slice())?;
         aead_open(&aead_key, &self.n, &self.enc.0, &[]).map_err(|_| SealError::OpenFailed)
     }
 

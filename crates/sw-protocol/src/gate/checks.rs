@@ -1,19 +1,25 @@
 use sw_crypto::{kid_of, verify_signature};
 use sw_model::EndpointKind;
 
-use super::Verifier;
-use super::{KeyEntry, KeyRole, Refusal};
+use super::assertion::check_sign_in;
+use super::{KeyEntry, KeyRole, Refusal, Verifier};
 use crate::body::{Audience, Body};
 use crate::payload::{Payload, SignerRole, limits};
-use crate::ports::IdentityPort;
+use crate::ports::{IdentityPort, SignInClaims};
 use crate::signed::Signed;
 
-/// An unknown `kid` is acceptable only for `ENROL` by assertion, signed by the very key it
-/// enrols, from the CID it enrols.
+/// An unknown `kid` is acceptable only for `ENROL` by assertion at the node, signed by the
+/// very key it enrols, from the CID it enrols, under an assertion that enrols that key.
 pub(super) fn enrolling_endpoint(
     signed: &Signed,
     message: &[u8],
-) -> Result<(Body, Option<Vec<u8>>), Refusal> {
+    verifier: Verifier<'_>,
+    identity: &dyn IdentityPort,
+    now_ms: u64,
+) -> Result<(Body, Option<SignInClaims>), Refusal> {
+    let Verifier::Node { sign_in_issuer, .. } = verifier else {
+        return Err(Refusal::UnknownKid);
+    };
     let body = Body::from_bytes(&signed.body.0).map_err(|_| Refusal::UnknownKid)?;
     let Payload::Enrol(enrol) = &body.payload else {
         return Err(Refusal::UnknownKid);
@@ -28,8 +34,15 @@ pub(super) fn enrolling_endpoint(
     if enrol.endpoint_cid != Some(body.from) {
         return Err(Refusal::FromMismatch);
     }
-    let blob = assertion.0.clone();
-    Ok((body, Some(blob)))
+    let claims = check_sign_in(
+        &assertion.0,
+        sign_in_issuer,
+        &keys.sign.0,
+        &body.iss,
+        identity,
+        now_ms,
+    )?;
+    Ok((body, Some(claims)))
 }
 
 pub(super) fn check_signer(
@@ -71,10 +84,10 @@ pub(super) fn check_signer(
     }
 }
 
-pub(super) fn check_audience(body: &Body, verifier: Verifier) -> Result<(), Refusal> {
+pub(super) fn check_audience(body: &Body, verifier: Verifier<'_>) -> Result<(), Refusal> {
     let relayed = body.payload.addressed_to_endpoint();
     let ok = match (verifier, body.aud) {
-        (Verifier::Node { session_cid }, aud) => {
+        (Verifier::Node { session_cid, .. }, aud) => {
             if body.from != session_cid {
                 return Err(Refusal::FromMismatch);
             }

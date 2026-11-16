@@ -120,7 +120,7 @@ fn payload_limits_are_refused_at_decode() {
     let long_note = JoinRequest {
         task_id: "t".into(),
         note: "x".repeat(281),
-        readiness: "1.0".into(),
+        readiness: sw_model::readiness::Readiness::READY,
         agent_id: None,
     };
     assert_eq!(
@@ -135,13 +135,13 @@ fn payload_limits_are_refused_at_decode() {
         node_id: None,
     };
     assert!(Payload::from_value(16, short_code.to_value()).is_err());
-    let not_a_map = TaskWrite {
-        op: TaskOp::Create,
-        task_id: "t".into(),
-        fields: sw_protocol::wire::Raw(1.into()),
-    };
+    let not_a_map = Value::Map(vec![
+        ("op".into(), "create".into()),
+        ("task_id".into(), "t".into()),
+        ("fields".into(), 1.into()),
+    ]);
     assert_eq!(
-        Payload::from_value(10, not_a_map.to_value()),
+        Payload::from_value(10, not_a_map),
         Err(WireError::Type("map"))
     );
 }

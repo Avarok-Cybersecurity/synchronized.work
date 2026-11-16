@@ -5,8 +5,10 @@ mod node;
 mod signal;
 mod status;
 
-pub use coop::{JoinAnswer, JoinRequest, Suggestion, TaskOp, TaskWrite};
-pub use node::{Enrol, EnrolOp, Event, Link, LinkOp, Notify, PubKeys, Subscribe, SubscribeOp};
+pub use coop::{JoinAnswer, JoinRequest, Suggestion, TaskFields, TaskOp, TaskWrite};
+pub use node::{
+    Enrol, EnrolOp, Event, EventBody, Link, LinkOp, Notify, PubKeys, Subscribe, SubscribeOp,
+};
 pub use signal::{ControlInner, ControlOp, PromptInner, PromptMode};
 pub use status::{
     Ack, AckResult, Hello, HelloKind, Presence, ProgressEvent, ProgressItem, ProgressTail,
@@ -26,6 +28,14 @@ pub mod limits {
     pub const TAIL_LINE_BYTES: usize = 512;
     pub const JOIN_NOTE_BYTES: usize = 280;
     pub const SUGGESTION_BYTES: usize = 2048;
+    /// A `STATUS_UPDATE`'s `blockers`.
+    pub const BLOCKERS_PER_STATUS: usize = 16;
+    /// A `CONTROL refuse_join` reason.
+    pub const REFUSAL_REASON_BYTES: usize = 280;
+    pub const TASK_TITLE_BYTES: usize = 200;
+    pub const TASK_DESCRIPTION_BYTES: usize = 4096;
+    /// `join_policy.max_coworkers` is `1..=MAX_COWORKERS`.
+    pub const MAX_COWORKERS: u16 = 64;
     /// `exp - iat` for 2, 3, 4, 5, 6 and 17.
     pub const LONG_LIFETIME_MS: u64 = 24 * 60 * 60 * 1000;
     /// `exp - iat` for every other signed type.
@@ -150,11 +160,10 @@ impl Payload {
                     || p.events.iter().any(|e| over(&e.body, PROGRESS_BODY_BYTES))
             }
             Self::ProgressTail(t) => over(&t.line, TAIL_LINE_BYTES),
+            Self::StatusUpdate(s) => s.blockers.len() > BLOCKERS_PER_STATUS,
             Self::JoinRequest(j) => over(&j.note, JOIN_NOTE_BYTES),
             Self::Suggestion(s) => over(&s.text, SUGGESTION_BYTES),
             Self::Prompt(s) | Self::Control(s) => s.check_shape().is_err(),
-            Self::TaskWrite(t) => return t.fields.expect_map(),
-            Self::Event(e) => return e.body.expect_map(),
             Self::Enrol(e) => return e.validate(),
             Self::Link(l) => return l.validate(),
             _ => false,

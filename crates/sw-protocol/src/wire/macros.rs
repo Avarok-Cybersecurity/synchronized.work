@@ -21,9 +21,18 @@ macro_rules! wire_map {
 }
 pub(crate) use wire_map;
 
-/// A struct carried as a CBOR map keyed by its field names (payloads).
+/// A struct carried as a CBOR map keyed by its field names (payloads). With a trailing
+/// `check = f;`, a decoded value is also refused unless `f(&value)` accepts it (the shape
+/// rules a type cannot express, e.g. "`reason` iff `refused`").
 macro_rules! wire_text {
     ($(#[$m:meta])* pub struct $name:ident { $($(#[$fm:meta])* $f:ident : $t:ty),* $(,)? }) => {
+        $crate::wire::wire_text! {
+            $(#[$m])* pub struct $name { $($(#[$fm])* $f: $t),* }
+            check = |_: &$name| Ok(());
+        }
+    };
+    ($(#[$m:meta])* pub struct $name:ident { $($(#[$fm:meta])* $f:ident : $t:ty),* $(,)? }
+     check = $check:expr;) => {
         $(#[$m])*
         #[derive(Debug, Clone, PartialEq, Eq)]
         pub struct $name { $($(#[$fm])* pub $f: $t),* }
@@ -37,6 +46,8 @@ macro_rules! wire_text {
                 let mut map = $crate::wire::MapIn::new(value)?;
                 let out = Self { $($f: map.field(stringify!($f))?),* };
                 map.finish()?;
+                let check: fn(&Self) -> Result<(), $crate::WireError> = $check;
+                check(&out)?;
                 Ok(out)
             }
         }

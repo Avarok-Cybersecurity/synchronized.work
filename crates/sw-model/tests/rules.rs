@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // tests fail loudly by design
 
 use sw_model::embedding::{DIMS, cosine, embed, tokens};
-use sw_model::readiness::{Blocker, Candidate, Readiness, admit, rank, readiness};
+use sw_model::readiness::{Blocker, BlockerKind, Candidate, Readiness, admit, rank, readiness};
 use sw_model::visibility::{Level, Viewer, level, notify_subject, redact};
 use sw_model::{Id128, IdFp, Progress, Visibility};
 
@@ -10,38 +10,63 @@ use wasm_bindgen_test::wasm_bindgen_test as test;
 
 const T: Id128 = Id128([1; 16]);
 
+fn b(kind: BlockerKind) -> Blocker {
+    let task_id = (kind == BlockerKind::Dependency).then(|| "task-t".to_owned());
+    Blocker {
+        kind,
+        text: "why".into(),
+        task_id,
+    }
+}
+
 #[test]
 fn readiness_table() {
-    let not_done = |_| false;
-    let rows: &[(&[Blocker], u16)] = &[
+    use BlockerKind::*;
+    let not_done = |_: &str| false;
+    let rows: &[(&[BlockerKind], u16)] = &[
         (&[], 1000),
-        (&[Blocker::Human], 0),
-        (&[Blocker::Dependency(T)], 200),
-        (&[Blocker::Lock], 500),
-        (&[Blocker::Disk], 500),
-        (&[Blocker::RateLimit], 500),
-        (&[Blocker::Other("x".into())], 500),
-        (&[Blocker::Lock, Blocker::Dependency(T)], 200),
-        (&[Blocker::Lock, Blocker::Human], 0),
+        (&[Human], 0),
+        (&[Dependency], 200),
+        (&[Lock], 500),
+        (&[Disk], 500),
+        (&[RateLimit], 500),
+        (&[Lock, Dependency], 200),
+        (&[Lock, Human], 0),
     ];
-    for (blockers, milli) in rows {
+    for (kinds, permille) in rows {
+        let blockers: Vec<Blocker> = kinds.iter().map(|k| b(*k)).collect();
         assert_eq!(
-            readiness(blockers, not_done).milli(),
-            *milli,
-            "{blockers:?}"
+            readiness(&blockers, not_done).permille(),
+            *permille,
+            "{kinds:?}"
         );
     }
     assert_eq!(
-        readiness(&[Blocker::Dependency(T)], |t| t == T),
+        readiness(&[b(Dependency)], |t| t == "task-t"),
         Readiness::READY
     );
 }
 
 #[test]
+fn a_blocker_names_a_task_iff_it_is_a_dependency() {
+    assert!(b(BlockerKind::Dependency).is_well_formed());
+    assert!(b(BlockerKind::Lock).is_well_formed());
+    let mut dep = b(BlockerKind::Dependency);
+    dep.task_id = None;
+    assert!(!dep.is_well_formed());
+    let mut lock = b(BlockerKind::Lock);
+    lock.task_id = Some("t".into());
+    assert!(!lock.is_well_formed());
+    lock.task_id = None;
+    lock.text = "x".repeat(281);
+    assert!(!lock.is_well_formed());
+}
+
+#[test]
 fn admission_is_readiest_first_then_oldest_and_respects_the_cap() {
-    let c = |key: u8, milli, since| Candidate {
+    let c = |key: u8, permille, since| Candidate {
         key,
-        readiness: Readiness::from_milli(milli).unwrap(),
+        readiness: Readiness::from_permille(permille).unwrap(),
         since_ms: since,
     };
     let waiting = [
@@ -59,7 +84,7 @@ fn admission_is_readiest_first_then_oldest_and_respects_the_cap() {
 
 #[test]
 fn readiness_above_one_is_refused() {
-    assert!(Readiness::from_milli(1001).is_none());
+    assert!(Readiness::from_permille(1001).is_none());
 }
 
 #[test]
@@ -92,7 +117,7 @@ fn redaction_drops_bodies_below_full() {
         updated_at: 1,
         event_cursor: 2,
     };
-    let blockers = [Blocker::Human];
+    let blockers = [b(BlockerKind::Human)];
     let summary = redact(Level::PhaseAndPercent, &p, &blockers).unwrap();
     assert_eq!(
         (

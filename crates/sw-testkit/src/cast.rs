@@ -23,6 +23,8 @@ pub struct Cast {
     pub bob: StandInIdentity,
     pub bob_controller: SigningKey,
     pub bob_controller_cid: Cid,
+    /// The node's pinned sign-in issuer in these tests (work.avarok.net's role).
+    pub sign_in_issuer: SigningKey,
 }
 
 impl Cast {
@@ -37,6 +39,7 @@ impl Cast {
             bob: StandInIdentity::from_seed(&[0x12; 32]),
             bob_controller: SigningKey::from_seed(&[0x22; 32]),
             bob_controller_cid: 1002,
+            sign_in_issuer: SigningKey::from_seed(&[0x51; 32]),
         }
     }
 

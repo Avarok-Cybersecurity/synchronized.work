@@ -1,0 +1,17 @@
+# Mirror of docs/contracts/batch-1116 at this parent revision; SHA3-256 per file.
+parent 4696ba2679140631cc3950f651ddd1eec02dba7a
+a4fdc90ec6936618954a290bcf101af60c15f811f7416cfeabec172ab29d66f7  fixtures/sw-wire/01-hello.json
+2b98164664b7219fd5cb70a0b795475738392b1a07dc8e65dcedeadcfdfbd67f  fixtures/sw-wire/02-status-update.json
+c5541e10b8934af8acd75f172f722567c491c4da1579e44fa26ba8bf9aa26d37  fixtures/sw-wire/04-prompt-sealed.json
+20202a3a697e0b2b11f16ec1334f771c834bc487e13ddc914c51bb15a70ac0d6  fixtures/sw-wire/06-ack.json
+367fe20f603ac6c876581f9d3e56c3596c6f574c484490df3f7a4199747a707a  fixtures/sw-wire/07-presence.json
+71151b3246a2b6c2107ca59d91546e78730bb2dcc96742905c7b359b9841b086  fixtures/sw-wire/11-enrol.json
+fe9492a32810717486634a7bf2567ea9064a6e3cc5d781d0dc235ba82cf43b0c  fixtures/sw-wire/11-revoke.json
+2aa7eccdfd2d03c99a14ef098ae836e7b90fcc819d956322b5a6bd9ed9e2c0c9  fixtures/sw-wire/15-subscribe.json
+8b2ebee561b38583f27453fa4e54104f86d85c35599f99cc11f98573a86201f4  fixtures/sw-wire/17-progress-tail.json
+152c828c8ff95499ffcbc5700ce9f5ace68203f5d07625dda4f23d82c46717db  fixtures/sw-wire/invalid-nonshortest-int.json
+989efb9b1671b76a5ec172b05cf1d0bc3440f28d93a029ae5db44ae5d38348d3  fixtures/sw-wire/invalid-unsorted-map.json
+67df17a122ba2b487b518ba03f139720731720905292542ae47fa89413acb876  fixtures/sw-wire/p2p-envelope.json
+a42c336ea87c9f25deaab1c21e5998ae44f7d25a9055a44e8daa188351be9d3b  fixtures/sw-wire/person-record.json
+83b90f7fd95b085a8e7fa6f3e3aa59d9631df6e626955d373450915acd1593b4  sign-in-kat.json
+df116e3fe01e55b754dac43b9cacb2c403589168f05c321617917932654ae3d5  sw-wire-kat.json

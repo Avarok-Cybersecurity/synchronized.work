@@ -6,7 +6,7 @@ mod support;
 
 use support::*;
 use sw_model::Role;
-use sw_model::tier::{Actor, DetachReason, Effect, JoinPolicy, Tier, TierEvent, apply};
+use sw_model::tier::{Actor, DetachReason, Effect, JoinPolicy, Tier, TierEvent, TierName, apply};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::wasm_bindgen_test as test;
@@ -20,8 +20,8 @@ fn closing_detaches_coworkers_and_refuses_pending_with_owner_closed() {
         effects,
         vec![
             Effect::TierChanged {
-                from: "synchronized",
-                to: "off"
+                from: TierName::Synchronized,
+                to: TierName::Off
             },
             Effect::Refused { person: fp('c') },
             Effect::Detached {

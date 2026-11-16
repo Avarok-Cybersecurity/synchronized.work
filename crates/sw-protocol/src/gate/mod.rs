@@ -2,9 +2,11 @@
 //! every Endpoint, on the C2S path and the P2P path alike; only the key directory and the
 //! expected audience differ. On a Device the directory *is* its local allowlist.
 
+mod assertion;
 mod checks;
 mod types;
 
+pub use assertion::{AssertionRefusal, SIGN_IN_AUDIENCES};
 pub use types::{KeyDirectory, KeyEntry, KeyRole, Refusal, Verified, Verifier};
 
 use sw_crypto::verify_signature;
@@ -59,7 +61,7 @@ pub fn verify(
     directory: &dyn KeyDirectory,
     identity: &dyn IdentityPort,
     replay: &mut ReplayGuard,
-    verifier: Verifier,
+    verifier: Verifier<'_>,
     now_ms: u64,
 ) -> Result<Verified, Refusal> {
     let SwMessage::Signed { typ, signed } = message else {
@@ -69,7 +71,7 @@ pub fn verify(
         return Err(Refusal::UnknownAlg);
     }
     let message = signed_message(&signed.body.0);
-    let (body, assertion_to_verify) = match directory.key(&signed.kid) {
+    let (body, sign_in) = match directory.key(&signed.kid) {
         Some(entry) => {
             match entry.role {
                 KeyRole::Identity => identity
@@ -84,7 +86,7 @@ pub fn verify(
             check_signer(&body, &entry, identity)?;
             (body, None)
         }
-        None => enrolling_endpoint(signed, &message)?,
+        None => enrolling_endpoint(signed, &message, verifier, identity, now_ms)?,
     };
     if body.payload.typ() != *typ {
         return Err(Refusal::TypMismatch);
@@ -103,6 +105,6 @@ pub fn verify(
         body,
         kid: signed.kid,
         signal_id,
-        assertion_to_verify,
+        sign_in,
     })
 }

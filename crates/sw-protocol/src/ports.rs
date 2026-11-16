@@ -13,8 +13,21 @@ pub enum IdentityError {
     BadSignature,
 }
 
+/// A sign-in assertion (identity-api §7) whose issuer signature verified. Whether its
+/// audience, expiry and device suit an `ENROL` is the gate's decision, not the port's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignInClaims {
+    /// The signed-in Person's identity public key.
+    pub identity: Vec<u8>,
+    /// `<slug>#<base64url(SHA3-256(Endpoint signing pk))>`.
+    pub device: String,
+    pub aud: String,
+    pub exp_s: u64,
+}
+
 /// What `sw-protocol` needs from the portable identity (`citadel-identity`, lane I1): the
-/// fingerprint of an identity public key, and verification of a signature made by one.
+/// fingerprint of an identity public key, verification of a signature made by one, and the
+/// parse-and-verify half of a sign-in assertion.
 /// Deliberately narrow so the identity crate plugs in as an adapter without this crate
 /// depending on it, and no second copy of its formulas lives here (SSOT).
 pub trait IdentityPort {
@@ -25,6 +38,9 @@ pub trait IdentityPort {
         message: &[u8],
         signature: &[u8],
     ) -> Result<(), IdentityError>;
+    /// Parses `blob` and checks its version and its signature by `issuer`. It does not check
+    /// the nonce: the node never saw the sign-in challenge (the MCP checked it).
+    fn open_assertion(&self, blob: &[u8], issuer: &[u8]) -> Result<SignInClaims, IdentityError>;
 }
 
 /// Anything that signs a `Body`: an Endpoint's ML-DSA-65 key here, the identity holder (the

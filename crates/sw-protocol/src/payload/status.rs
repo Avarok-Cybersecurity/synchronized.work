@@ -1,7 +1,9 @@
 //! Status and presence payloads (types 1, 2, 3, 6, 7, 17). Text keys.
 
-use sw_model::Cid;
+use sw_model::readiness::Blocker;
+use sw_model::{Cid, Lane};
 
+use crate::WireError;
 use crate::wire::{wire_str, wire_text};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,12 +24,12 @@ wire_text! {
 }
 
 wire_text! {
-    /// 2 `STATUS_UPDATE`: Device-signed. `lane` and `blockers` are text (contract §3).
+    /// 2 `STATUS_UPDATE`: Device-signed; at most 16 blockers.
     pub struct StatusUpdate {
         agent_id: String,
         task_id: String,
-        lane: String,
-        blockers: Vec<String>,
+        lane: Lane,
+        blockers: Vec<Blocker>,
         harness: String,
     }
 }
@@ -61,12 +63,24 @@ wire_str!(AckResult {
 });
 
 wire_text! {
-    /// 6 `ACK`: Device-signed, addressed to the Controller's CID. `signal_id` is `SHA-256` of
+    /// 6 `ACK`: Device-signed, addressed to the Controller's CID. `signal_id` is `SHA3-256` of
     /// the signal's `Signed` bytes.
     pub struct Ack {
         signal_id: [u8; 32],
         result: AckResult,
         reason: Option<String>,
+    }
+    check = Ack::check;
+}
+
+impl Ack {
+    /// `reason` iff `refused`.
+    fn check(&self) -> Result<(), WireError> {
+        if self.reason.is_some() == (self.result == AckResult::Refused) {
+            Ok(())
+        } else {
+            Err(WireError::Shape("ACK reason iff refused"))
+        }
     }
 }
 

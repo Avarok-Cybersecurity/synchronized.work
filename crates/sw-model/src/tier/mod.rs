@@ -38,12 +38,20 @@ pub enum Tier {
     },
 }
 
+/// Which tier, without its state: what a `CONTROL set_tier` or a `TaskFields.tier` names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TierName {
+    Off,
+    Aware,
+    Synchronized,
+}
+
 impl Tier {
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> TierName {
         match self {
-            Self::Off => "off",
-            Self::Aware { .. } => "aware",
-            Self::Synchronized { .. } => "synchronized",
+            Self::Off => TierName::Off,
+            Self::Aware { .. } => TierName::Aware,
+            Self::Synchronized { .. } => TierName::Synchronized,
         }
     }
 }
@@ -112,32 +120,14 @@ pub enum DetachReason {
 /// What a transition did, for the progress log and the significant-event rules (§4.7).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
-    TierChanged {
-        from: &'static str,
-        to: &'static str,
-    },
-    JoinRequested {
-        person: IdFp,
-    },
-    Admitted {
-        person: IdFp,
-    },
-    Refused {
-        person: IdFp,
-    },
-    Detached {
-        person: IdFp,
-        reason: DetachReason,
-    },
-    Left {
-        person: IdFp,
-    },
-    StatusChanged {
-        status: Status,
-    },
-    OwnerChanged {
-        new_owner: IdFp,
-    },
+    TierChanged { from: TierName, to: TierName },
+    JoinRequested { person: IdFp },
+    Admitted { person: IdFp },
+    Refused { person: IdFp },
+    Detached { person: IdFp, reason: DetachReason },
+    Left { person: IdFp },
+    StatusChanged { status: Status },
+    OwnerChanged { new_owner: IdFp },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

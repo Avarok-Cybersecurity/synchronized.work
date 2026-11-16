@@ -2,7 +2,7 @@
 //! `{1: typ, 2: unsigned payload | 3: Signed}` (sw-wire contract §2).
 
 use ciborium::value::Value;
-use sw_crypto::{Kid, kid_of, sha256};
+use sw_crypto::{Kid, kid_of, sha3_256};
 
 use crate::body::Body;
 use crate::payload::Payload;
@@ -17,7 +17,7 @@ pub const SIGN_DOMAIN: &[u8] = b"sw-signed-v1\0";
 wire_map! {
     pub struct Signed {
         1 => alg: String,
-        /// `SHA-256` of the signer's verifying key.
+        /// `SHA3-256` of the signer's verifying key.
         2 => kid: Kid,
         /// The canonical CBOR of the [`Body`], exactly as signed.
         3 => body: Bytes,
@@ -42,9 +42,9 @@ impl Signed {
         })
     }
 
-    /// `signal_id = SHA-256(Signed bytes)`: the canonical encoding of this map.
+    /// `signal_id = SHA3-256(Signed bytes)`: the canonical encoding of this map.
     pub fn signal_id(&self) -> Result<[u8; 32], WireError> {
-        Ok(sha256(&cbor::encode(&self.to_value())?))
+        Ok(sha3_256(&cbor::encode(&self.to_value())?))
     }
 }
 

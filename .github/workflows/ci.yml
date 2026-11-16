@@ -62,7 +62,9 @@ jobs:
         run: cargo run --locked -p xtask -- file-length
       - name: sbio (no I/O or OS-randomness dependency in a pure crate)
         run: cargo run --locked -p xtask -- sbio
-      - name: conformance (fixtures canonical, generated, digested, verified)
+      # The parent repo holding the contract is private, so CI proves the mirror against
+      # fixtures/contract.pin (parent revision + SHA3-256 per file) instead of a checkout.
+      - name: conformance (fixtures pass the shared check; mirror matches contract.pin)
         run: cargo run --locked -p xtask -- conformance
 
   deny:

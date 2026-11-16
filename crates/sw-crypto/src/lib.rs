@@ -1,5 +1,5 @@
 //! Post-quantum primitives for synchronized.work, bytes in and bytes out: ML-DSA-65,
-//! ML-KEM-768, HKDF-SHA-256, AES-256-GCM, SHA-256 and SHA3-256.
+//! ML-KEM-768, HKDF-SHA3-256, AES-256-GCM and SHA3-256.
 //!
 //! Nothing here reads a clock, the OS or a global RNG: every random input arrives through
 //! [`Entropy`], which each adapter implements over its platform's CSPRNG (web crypto, the OS,
@@ -11,7 +11,7 @@ mod kem;
 mod sign;
 
 pub use aead::{AEAD_KEY_LEN, AEAD_NONCE_LEN, aead_open, aead_seal};
-pub use hash::{hkdf_sha256, kid_of, sha3_256, sha256};
+pub use hash::{hkdf_sha3_256, kid_of, sha3_256};
 pub use kem::{
     KEM_CIPHERTEXT_LEN, KEM_ENCAPSULATION_KEY_LEN, KEM_SEED_LEN, KemSecretKey, SharedSecret,
     kem_encapsulate,
@@ -24,7 +24,7 @@ pub trait Entropy {
     fn fill(&mut self, out: &mut [u8]);
 }
 
-/// 32 bytes identifying a public key: `SHA-256(public key bytes)` (design §4.2 `kid`).
+/// 32 bytes identifying a public key: `SHA3-256(public key bytes)` (sw-wire contract §2 `kid`).
 pub type Kid = [u8; 32];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

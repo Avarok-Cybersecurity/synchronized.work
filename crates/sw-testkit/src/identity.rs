@@ -6,7 +6,7 @@ use hmac::{Hmac, KeyInit, Mac};
 use sha3::Sha3_256;
 use sw_crypto::{SigningKey, sha3_256, verify_signature};
 use sw_model::IdFp;
-use sw_protocol::ports::{IdentityError, IdentityPort, MessageSigner};
+use sw_protocol::ports::{IdentityError, IdentityPort, MessageSigner, SignInClaims};
 
 #[derive(Debug)]
 pub struct StandInIdentity {
@@ -61,5 +61,8 @@ impl IdentityPort for StandInIdentityPort {
     }
     fn verify(&self, pk: &[u8], message: &[u8], sig: &[u8]) -> Result<(), IdentityError> {
         verify_signature(pk, message, sig).map_err(|_| IdentityError::BadSignature)
+    }
+    fn open_assertion(&self, blob: &[u8], issuer: &[u8]) -> Result<SignInClaims, IdentityError> {
+        crate::assertion::open_assertion(blob, issuer)
     }
 }

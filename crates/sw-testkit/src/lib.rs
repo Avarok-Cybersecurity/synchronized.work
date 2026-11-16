@@ -6,12 +6,14 @@
 //! stop the run loudly.
 #![allow(clippy::expect_used)]
 
+pub mod assertion;
 mod cast;
 pub mod conformance;
 mod entropy;
 mod identity;
 pub mod kat;
 mod model;
+pub mod sign_in_kat;
 
 pub use cast::{Cast, Directory, FIXTURE_NOW_MS};
 pub use entropy::{LabelledEntropy, ReplayedEntropy};

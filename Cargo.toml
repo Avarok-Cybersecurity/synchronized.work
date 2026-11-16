@@ -31,7 +31,6 @@ sw-testkit = { path = "crates/sw-testkit", version = "0.1.0" }
 ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "zeroize"] }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "hazmat"] }
 sha3 = { version = "0.11", default-features = false }
-sha2 = { version = "0.11", default-features = false }
 hmac = { version = "0.13", default-features = false }
 hkdf = { version = "0.13", default-features = false }
 aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "alloc"] }

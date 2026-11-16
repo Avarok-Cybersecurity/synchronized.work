@@ -11,6 +11,7 @@ repository.workspace = true
 sw-model.workspace = true
 sw-crypto.workspace = true
 ciborium.workspace = true
+data-encoding.workspace = true
 
 [dev-dependencies]
 sw-testkit.workspace = true

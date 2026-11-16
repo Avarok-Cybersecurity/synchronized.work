@@ -21,7 +21,7 @@ pub struct Kat {
     pub device_cid: Cid,
 }
 
-fn text<'a>(j: &'a Json, path: &[&str]) -> Result<&'a str, String> {
+pub(crate) fn text<'a>(j: &'a Json, path: &[&str]) -> Result<&'a str, String> {
     let mut at = j;
     for p in path {
         at = at
@@ -32,7 +32,7 @@ fn text<'a>(j: &'a Json, path: &[&str]) -> Result<&'a str, String> {
         .ok_or_else(|| format!("kat: {} is not text", path.join(".")))
 }
 
-fn uint(j: &Json, path: &[&str]) -> Result<u64, String> {
+pub(crate) fn uint(j: &Json, path: &[&str]) -> Result<u64, String> {
     let mut at = j;
     for p in path {
         at = at
@@ -43,13 +43,13 @@ fn uint(j: &Json, path: &[&str]) -> Result<u64, String> {
         .ok_or_else(|| format!("kat: {} is not a uint", path.join(".")))
 }
 
-fn fixed<const N: usize>(j: &Json, path: &[&str]) -> Result<[u8; N], String> {
+pub(crate) fn fixed<const N: usize>(j: &Json, path: &[&str]) -> Result<[u8; N], String> {
     unhex(text(j, path)?)?
         .try_into()
         .map_err(|_| format!("kat: {} is not {N} bytes", path.join(".")))
 }
 
-fn same(label: &str, got: &[u8], want: &str) -> Result<(), String> {
+pub(crate) fn same(label: &str, got: &[u8], want: &str) -> Result<(), String> {
     if hex(got) == want {
         Ok(())
     } else {

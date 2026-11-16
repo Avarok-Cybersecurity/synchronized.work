@@ -27,8 +27,8 @@ pub fn session(c: char) -> Actor {
     Actor::Session { id_fp: fp(c) }
 }
 
-pub fn req(c: char, milli: u16, at: u64) -> JoinRequest {
-    let readiness = Readiness::from_milli(milli).unwrap();
+pub fn req(c: char, permille: u16, at: u64) -> JoinRequest {
+    let readiness = Readiness::from_permille(permille).unwrap();
     JoinRequest {
         person: fp(c),
         readiness,
