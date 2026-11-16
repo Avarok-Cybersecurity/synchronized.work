@@ -36,9 +36,9 @@ fn keyed_hash(feature: &str) -> u64 {
     u64::from_be_bytes(word)
 }
 
-/// Tokens and adjacent bigrams hashed into 256 signed buckets, then L2-normalised.
-/// An input with no tokens yields the zero vector.
-pub fn embed(title: &str, description: &str) -> [f32; DIMS] {
+/// Tokens and adjacent bigrams hashed into 256 signed buckets: the exact integer form a
+/// `TASK_WRITE` carries and the server recomputes.
+pub fn buckets(title: &str, description: &str) -> [i32; DIMS] {
     let toks = tokens(&format!("{title} {description}"));
     let bigrams = toks.windows(2).map(|w| format!("{} {}", w[0], w[1]));
     let mut buckets = [0i32; DIMS];
@@ -47,6 +47,12 @@ pub fn embed(title: &str, description: &str) -> [f32; DIMS] {
         let index = (h % DIMS as u64) as usize;
         buckets[index] += if h >> 63 == 1 { -1 } else { 1 };
     }
+    buckets
+}
+
+/// [`buckets`], L2-normalised. An input with no tokens yields the zero vector.
+pub fn embed(title: &str, description: &str) -> [f32; DIMS] {
+    let buckets = buckets(title, description);
     let norm_sq: i64 = buckets.iter().map(|&b| i64::from(b) * i64::from(b)).sum();
     let mut out = [0f32; DIMS];
     if norm_sq == 0 {

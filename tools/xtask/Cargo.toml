@@ -1,5 +1,6 @@
 [package]
 name = "xtask"
+description = "CI gates for synchronized.work: file-length, sbio, conformance; and gen-fixtures."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,6 +8,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
+sw-testkit.workspace = true
 
 [lints]
 workspace = true
