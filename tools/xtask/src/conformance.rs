@@ -1,71 +1,73 @@
-//! The conformance gate: the committed fixtures are exactly what the generator produces, the
-//! MANIFEST digests match, and every fixture passes `sw_testkit::conformance::check`.
+//! The conformance gate: every fixture in `fixtures/sw-wire/` (C0's, mirrored byte for byte)
+//! passes `sw_testkit::conformance::check` with the keys of `fixtures/sw-wire-kat.json`, and
+//! at least one `invalid-*` fixture is present and refused. `--mirror <contract dir>` also
+//! proves the mirror is exact (run it wherever the parent checkout is available).
 
-use std::collections::BTreeSet;
 use std::path::Path;
 
-use sw_testkit::conformance::{check, diag_name, diagnostic, manifest};
-use sw_testkit::fixtures;
+use sw_testkit::conformance::check;
+use sw_testkit::kat::Kat;
 
-const MANIFEST: &str = "MANIFEST";
-
-pub fn generate(root: &Path) -> Result<String, String> {
+pub fn run(root: &Path, args: &[String]) -> Result<String, String> {
     let dir = root.join("fixtures");
-    let all = fixtures::all();
-    for (name, bytes) in &all {
-        write(&dir.join(name), bytes)?;
-        write(
-            &dir.join(diag_name(name)),
-            format!("{}\n", diagnostic(bytes)?).as_bytes(),
-        )?;
+    let kat = Kat::parse(&read(&dir.join("sw-wire-kat.json"))?)?;
+    let files = json_files(&dir.join("sw-wire"))?;
+    let mut invalid = 0;
+    for name in &files {
+        check(name, &read(&dir.join("sw-wire").join(name))?, &kat)?;
+        invalid += usize::from(name.starts_with("invalid-"));
     }
-    write(&dir.join(MANIFEST), manifest(&all).as_bytes())?;
+    if invalid == 0 {
+        return Err("no invalid-* fixture, so refusal was never exercised".to_owned());
+    }
+    let mirror = match args {
+        [flag, contract] if flag == "--mirror" => mirror(&dir, Path::new(contract))?,
+        [] => "mirror not checked (pass --mirror <docs/contracts/batch-1116>)".to_owned(),
+        _ => return Err("usage: xtask conformance [--mirror <contract dir>]".to_owned()),
+    };
     Ok(format!(
-        "gen-fixtures: wrote {} fixtures to {}",
-        all.len(),
-        dir.display()
+        "conformance: PASS ({} fixtures, {invalid} refused as required; {mirror})",
+        files.len()
     ))
 }
 
-pub fn run(root: &Path) -> Result<String, String> {
-    let dir = root.join("fixtures");
-    let expected = fixtures::all();
-    let mut on_disk = Vec::new();
-    let mut names = BTreeSet::new();
-    for entry in std::fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))? {
-        let name = entry.map_err(|e| e.to_string())?.file_name();
-        names.insert(name.to_string_lossy().into_owned());
+fn mirror(ours: &Path, contract: &Path) -> Result<String, String> {
+    let theirs = json_files(&contract.join("fixtures/sw-wire"))?;
+    if theirs != json_files(&ours.join("sw-wire"))? {
+        return Err("fixtures/sw-wire/ does not hold the contract's file set".to_owned());
     }
-    let mut known: BTreeSet<String> = [MANIFEST.to_owned()].into();
-    for (name, generated) in &expected {
-        known.insert((*name).to_owned());
-        known.insert(diag_name(name));
-        let bytes = read(&dir.join(name))?;
-        let diag = String::from_utf8(read(&dir.join(diag_name(name)))?)
-            .map_err(|_| format!("{} is not UTF-8", diag_name(name)))?;
-        check(name, &bytes, &diag)?;
-        if &bytes != generated {
-            return Err(format!("{name} differs from what the generator produces"));
+    let mut pairs: Vec<(String, String)> = theirs
+        .iter()
+        .map(|n| (format!("fixtures/sw-wire/{n}"), format!("sw-wire/{n}")))
+        .collect();
+    pairs.push(("sw-wire-kat.json".to_owned(), "sw-wire-kat.json".to_owned()));
+    for (theirs, ours_rel) in &pairs {
+        if read(&contract.join(theirs))? != read(&ours.join(ours_rel))? {
+            return Err(format!(
+                "fixtures/{ours_rel} differs from the contract's {theirs}"
+            ));
         }
-        on_disk.push((*name, bytes));
     }
-    let stray: Vec<&String> = names.difference(&known).collect();
-    if !stray.is_empty() {
-        return Err(format!(
-            "fixtures/ holds files no generator produced: {stray:?}"
-        ));
-    }
-    let committed = String::from_utf8(read(&dir.join(MANIFEST))?).map_err(|e| e.to_string())?;
-    if committed != manifest(&on_disk) {
-        return Err("fixtures/MANIFEST digests do not match the fixtures".to_owned());
-    }
-    Ok(format!("conformance: PASS ({} fixtures)", expected.len()))
+    Ok(format!("mirror exact ({} files)", pairs.len()))
 }
 
-fn read(path: &Path) -> Result<Vec<u8>, String> {
-    std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))
+fn json_files(dir: &Path) -> Result<Vec<String>, String> {
+    let mut names = Vec::new();
+    for entry in std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+        let name = entry
+            .map_err(|e| e.to_string())?
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        if !name.ends_with(".json") {
+            return Err(format!("{}/{name} is not a JSON fixture", dir.display()));
+        }
+        names.push(name);
+    }
+    names.sort();
+    Ok(names)
 }
 
-fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    std::fs::write(path, bytes).map_err(|e| format!("{}: {e}", path.display()))
+fn read(path: &Path) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }

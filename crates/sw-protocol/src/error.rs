@@ -1,6 +1,8 @@
 use core::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use crate::wire::Key;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WireError {
     /// Not CBOR, or not one complete item.
     Malformed,
@@ -9,8 +11,8 @@ pub enum WireError {
     /// A float, tag, `null` or `undefined`.
     ForbiddenType,
     DuplicateKey,
-    UnknownKey(u64),
-    MissingKey(u64),
+    UnknownKey(Key),
+    MissingKey(Key),
     Type(&'static str),
     Range(&'static str),
     Length(&'static str),

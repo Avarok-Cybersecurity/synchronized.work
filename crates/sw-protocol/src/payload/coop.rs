@@ -1,27 +1,23 @@
-//! Cooperation payloads written to the ProjectDO (types 8, 9, 10, 12).
+//! Cooperation payloads written to the ProjectDO (types 8, 9, 10, 12). Text keys.
 
-use sw_model::readiness::Readiness;
-use sw_model::{Id128, IdFp, Status, Visibility};
+use crate::wire::{Raw, wire_str, wire_text};
 
-use crate::model_wire::wire_code;
-use crate::wire::wire_map;
-
-wire_map! {
-    /// 8 `JOIN_REQUEST`: Endpoint-signed. `note` at most 280 bytes.
+wire_text! {
+    /// 8 `JOIN_REQUEST`: Endpoint-signed. `note` at most 280 bytes; `readiness` is text.
     pub struct JoinRequest {
-        0 => task_id: Id128,
-        1 => note: String,
-        2 => readiness: Readiness,
-        3 => agent_id: Option<Id128>,
+        task_id: String,
+        note: String,
+        readiness: String,
+        agent_id: Option<String>,
     }
 }
 
-wire_map! {
+wire_text! {
     /// 9 `JOIN_ANSWER`: signed by the owner's Controller key.
     pub struct JoinAnswer {
-        0 => request_id: Id128,
-        1 => accept: bool,
-        2 => reason: Option<String>,
+        request_id: [u8; 32],
+        accept: bool,
+        reason: Option<String>,
     }
 }
 
@@ -31,30 +27,22 @@ pub enum TaskOp {
     Update,
     Delete,
 }
-wire_code!(TaskOp { 0 => TaskOp::Create, 1 => TaskOp::Update, 2 => TaskOp::Delete });
+wire_str!(TaskOp { "create" => TaskOp::Create, "update" => TaskOp::Update, "delete" => TaskOp::Delete });
 
-wire_map! {
-    /// 10 `TASK_WRITE`: Endpoint-signed by the owner or an admin. `embedding` is the 256
-    /// integer buckets of `sw_model::embedding::buckets`, which the ProjectDO recomputes
-    /// from `title` and `description` and refuses on mismatch. A create carries `title`,
-    /// `description`, `visibility` and `embedding`; nothing is defaulted.
+wire_text! {
+    /// 10 `TASK_WRITE`: Endpoint-signed by the owner or an admin. `fields` is a map whose
+    /// schema the contract leaves to the ProjectDO.
     pub struct TaskWrite {
-        0 => task_id: Id128,
-        1 => op: TaskOp,
-        2 => title: Option<String>,
-        3 => description: Option<String>,
-        4 => visibility: Option<Visibility>,
-        5 => parent: Option<Id128>,
-        6 => owner: Option<IdFp>,
-        7 => status: Option<Status>,
-        8 => embedding: Option<Vec<i32>>,
+        op: TaskOp,
+        task_id: String,
+        fields: Raw,
     }
 }
 
-wire_map! {
+wire_text! {
     /// 12 `SUGGESTION`: Endpoint-signed, at most 2 KiB, never delivered to a Device.
     pub struct Suggestion {
-        0 => task_id: Id128,
-        1 => text: String,
+        task_id: String,
+        text: String,
     }
 }

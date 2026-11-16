@@ -9,9 +9,10 @@
 mod cast;
 pub mod conformance;
 mod entropy;
-pub mod fixtures;
 mod identity;
+pub mod kat;
+mod model;
 
 pub use cast::{Cast, Directory, FIXTURE_NOW_MS};
-pub use entropy::LabelledEntropy;
+pub use entropy::{LabelledEntropy, ReplayedEntropy};
 pub use identity::{StandInIdentity, StandInIdentityPort};

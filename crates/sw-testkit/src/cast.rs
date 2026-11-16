@@ -87,12 +87,16 @@ pub struct Directory(BTreeMap<Kid, KeyEntry>);
 
 impl Directory {
     pub fn add(&mut self, key: &dyn MessageSigner, owner: IdFp, role: KeyRole) {
+        self.add_key(key.public_key(), owner, role);
+    }
+
+    pub fn add_key(&mut self, public_key: &[u8], owner: IdFp, role: KeyRole) {
         let entry = KeyEntry {
-            public_key: key.public_key().to_vec(),
+            public_key: public_key.to_vec(),
             owner,
             role,
         };
-        self.0.insert(kid_of(key.public_key()), entry);
+        self.0.insert(kid_of(public_key), entry);
     }
 }
 

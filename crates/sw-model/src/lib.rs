@@ -13,6 +13,6 @@ pub mod visibility;
 
 pub use ids::{Cid, Id128, IdError, IdFp};
 pub use tree::{
-    Agent, Endpoint, EndpointKind, Lane, Person, PersonRecord, Policy, Progress, Project, Role,
-    Status, Task, Visibility,
+    Agent, Approval, Endpoint, EndpointKind, Lane, Person, PersonPolicy, PersonRecord, Policy,
+    Progress, Project, Role, Status, Task, Visibility,
 };

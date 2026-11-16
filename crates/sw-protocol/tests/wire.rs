@@ -1,15 +1,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // tests fail loudly by design
 
-//! Canonical CBOR, schema strictness, sealing and the P2P envelope.
+//! Canonical CBOR, schema strictness and payload limits.
 
-use sw_model::Id128;
+use ciborium::value::Value;
 use sw_protocol::WireError;
-use sw_protocol::cbor::decode;
-use sw_protocol::p2p::{decode_p2p, encode_p2p};
+use sw_protocol::cbor::{decode, encode};
 use sw_protocol::payload::*;
-use sw_protocol::sealed::{SealError, Sealed};
 use sw_protocol::signed::SwMessage;
-use sw_testkit::{Cast, LabelledEntropy};
+use sw_protocol::wire::{Key, Wire};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::wasm_bindgen_test as test;
@@ -27,57 +25,80 @@ fn non_canonical_cbor_is_refused() {
         (&[0xc1, 0x01], WireError::ForbiddenType),      // tag 1
     ];
     for (bytes, expect) in cases {
-        assert_eq!(decode(bytes), Err(*expect), "{bytes:02x?}");
+        assert_eq!(decode(bytes).as_ref(), Err(expect), "{bytes:02x?}");
     }
     assert!(decode(&[0xa2, 0x01, 0x00, 0x02, 0x00]).is_ok());
 }
 
-fn hello_bytes() -> Vec<u8> {
-    let hello = Hello {
+fn hello() -> Hello {
+    Hello {
         protocol_version: 1,
-        endpoint_kind: sw_model::EndpointKind::Device,
+        endpoint_kind: HelloKind::Viewer,
         client_build: "b".into(),
-    };
-    SwMessage::Unsigned(Payload::Hello(hello))
-        .to_bytes()
-        .unwrap()
+    }
+}
+
+fn frame(payload: Value) -> Vec<u8> {
+    encode(&Value::Map(vec![(1.into(), 1.into()), (2.into(), payload)])).unwrap()
 }
 
 #[test]
 fn unknown_and_missing_keys_are_refused() {
-    // {0: 1, 1: 1, 2: {0: 1, 1: 0, 2: "b", 9: 0}}
-    let unknown = [
-        0xa3, 0x00, 0x01, 0x01, 0x01, 0x02, 0xa4, 0x00, 0x01, 0x01, 0x00, 0x02, 0x61, b'b', 0x09,
-        0x00,
-    ];
+    let Value::Map(mut entries) = hello().to_value() else {
+        panic!()
+    };
+    entries.push(("extra".into(), 0.into()));
+    let got = SwMessage::from_bytes(&frame(Value::Map(entries)));
+    assert_eq!(got, Err(WireError::UnknownKey(Key::Text("extra".into()))));
+    let Value::Map(mut entries) = hello().to_value() else {
+        panic!()
+    };
+    entries.retain(|(k, _)| k != &Value::Text("client_build".into()));
+    let got = SwMessage::from_bytes(&frame(Value::Map(entries)));
     assert_eq!(
-        SwMessage::from_bytes(&unknown),
-        Err(WireError::UnknownKey(9))
+        got,
+        Err(WireError::MissingKey(Key::Text("client_build".into())))
     );
-    let missing = [
-        0xa3, 0x00, 0x01, 0x01, 0x01, 0x02, 0xa2, 0x00, 0x01, 0x01, 0x00,
-    ];
-    assert_eq!(
-        SwMessage::from_bytes(&missing),
-        Err(WireError::MissingKey(2))
-    );
-    let ok = hello_bytes();
+    let ok = SwMessage::Unsigned(Payload::Hello(hello()))
+        .to_bytes()
+        .unwrap();
     assert_eq!(SwMessage::from_bytes(&ok).unwrap().to_bytes().unwrap(), ok);
 }
 
 #[test]
-fn unknown_type_and_version_are_refused() {
-    let mut bytes = hello_bytes();
-    bytes[4] = 0x12; // typ 18
+fn unknown_type_and_both_slots_are_refused() {
+    let bytes = encode(&Value::Map(vec![
+        (1.into(), 18.into()),
+        (2.into(), hello().to_value()),
+    ]))
+    .unwrap();
     assert_eq!(
         SwMessage::from_bytes(&bytes),
         Err(WireError::UnknownCode("typ"))
     );
-    let mut bytes = hello_bytes();
-    bytes[2] = 0x02; // version 2
+    let both = encode(&Value::Map(vec![
+        (1.into(), 1.into()),
+        (2.into(), hello().to_value()),
+        (3.into(), hello().to_value()),
+    ]))
+    .unwrap();
+    assert!(SwMessage::from_bytes(&both).is_err());
+    let bad_enum = Hello {
+        endpoint_kind: HelloKind::Device,
+        ..hello()
+    }
+    .to_value();
+    let Value::Map(mut e) = bad_enum else {
+        panic!()
+    };
+    for (k, v) in &mut e {
+        if k == &Value::Text("endpoint_kind".into()) {
+            *v = "robot".into();
+        }
+    }
     assert_eq!(
-        SwMessage::from_bytes(&bytes),
-        Err(WireError::Range("wire version"))
+        SwMessage::from_bytes(&frame(Value::Map(e))),
+        Err(WireError::UnknownCode("HelloKind"))
     );
 }
 
@@ -89,108 +110,65 @@ fn payload_limits_are_refused_at_decode() {
         body: "b".into(),
     };
     let too_many = ProgressEvent {
-        agent_id: Id128([1; 16]),
+        agent_id: "a".into(),
         events: (0..65).map(|_| item()).collect(),
     };
-    let v = sw_protocol::wire::Wire::to_value(&too_many);
     assert_eq!(
-        Payload::from_value(3, v),
+        Payload::from_value(3, too_many.to_value()),
         Err(WireError::Length("payload limit"))
     );
     let long_note = JoinRequest {
-        task_id: Id128([1; 16]),
+        task_id: "t".into(),
         note: "x".repeat(281),
-        readiness: sw_model::readiness::Readiness::READY,
+        readiness: "1.0".into(),
         agent_id: None,
     };
-    let v = sw_protocol::wire::Wire::to_value(&long_note);
     assert_eq!(
-        Payload::from_value(8, v),
+        Payload::from_value(8, long_note.to_value()),
         Err(WireError::Length("payload limit"))
     );
-}
-
-fn sealed(cast: &Cast) -> Sealed {
-    let inner = PromptInner {
-        task_id: Id128([2; 16]),
-        agent_id: None,
-        text: "secret".into(),
-        mode: PromptMode::Interrupt,
-        reply_to: None,
+    let short_code = Link {
+        op: LinkOp::Code,
+        code: "ABC".into(),
+        acting_username: None,
+        install_id: None,
+        node_id: None,
     };
-    let mut e = LabelledEntropy::new("seal-test");
-    Sealed::seal(
-        cast.alice_device_kem.encapsulation_key(),
-        cast.alice_device_cid,
-        &inner,
-        &mut e,
-    )
-    .unwrap()
-}
-
-#[test]
-fn sealed_opens_only_for_its_device_and_only_untampered() {
-    let cast = Cast::new();
-    let s = sealed(&cast);
-    let (aud, inner) = s.open::<PromptInner>(&cast.alice_device_kem).unwrap();
+    assert!(Payload::from_value(16, short_code.to_value()).is_err());
+    let not_a_map = TaskWrite {
+        op: TaskOp::Create,
+        task_id: "t".into(),
+        fields: sw_protocol::wire::Raw(1.into()),
+    };
     assert_eq!(
-        (aud, inner.text.as_str()),
-        (cast.alice_device_cid, "secret")
-    );
-    let other = sw_crypto::KemSecretKey::from_seed(&[0x77; 64]);
-    assert_eq!(
-        s.open::<PromptInner>(&other).unwrap_err(),
-        SealError::WrongRecipient
-    );
-    for field in 0..3 {
-        let mut t = s.clone();
-        match field {
-            0 => t.enc.0[0] ^= 1,
-            1 => t.n[0] ^= 1,
-            _ => t.ct.0[0] ^= 1,
-        }
-        assert_eq!(
-            t.open::<PromptInner>(&cast.alice_device_kem).unwrap_err(),
-            SealError::OpenFailed,
-            "field {field}"
-        );
-    }
-    let mut wrong_alg = s.clone();
-    wrong_alg.kem = "X25519".into();
-    assert_eq!(
-        wrong_alg
-            .open::<PromptInner>(&cast.alice_device_kem)
-            .unwrap_err(),
-        SealError::UnknownAlg
+        Payload::from_value(10, not_a_map.to_value()),
+        Err(WireError::Type("map"))
     );
 }
 
 #[test]
-fn the_ciphertext_does_not_contain_the_prompt() {
-    let cast = Cast::new();
-    let s = sealed(&cast);
-    assert!(!s.enc.0.windows(6).any(|w| w == b"secret"));
-}
-
-#[test]
-fn p2p_envelope_is_exactly_type_and_payload() {
-    let inner = hello_bytes();
-    let env = encode_p2p(&inner).unwrap();
-    assert_eq!(decode_p2p(&env).unwrap(), inner);
-    let wrong_tag = sw_protocol::cbor::encode(&ciborium::value::Value::Map(vec![
-        ("type".into(), "sw/2".into()),
-        (
-            "payload".into(),
-            ciborium::value::Value::Bytes(inner.clone()),
-        ),
-    ]))
-    .unwrap();
-    assert_eq!(decode_p2p(&wrong_tag), Err(WireError::Range("p2p type")));
-    let extra = sw_protocol::cbor::encode(&ciborium::value::Value::Map(vec![
-        ("type".into(), "sw/1".into()),
-        ("payload".into(), ciborium::value::Value::Bytes(inner)),
-        ("x".into(), 1.into()),
-    ]))
-    .unwrap();
-    assert!(decode_p2p(&extra).is_err());
+fn enrol_and_revoke_carry_exactly_their_op_fields() {
+    let revoke_with_keys = Enrol {
+        op: EnrolOp::Revoke,
+        epoch: 2,
+        endpoint_cid: Some(1),
+        kind: None,
+        pubkeys: None,
+        kid: Some([0; 32]),
+        assertion: None,
+    };
+    assert!(Payload::from_value(11, revoke_with_keys.to_value()).is_err());
+    let device_without_seal = Enrol {
+        op: EnrolOp::Enrol,
+        epoch: 1,
+        endpoint_cid: Some(1),
+        kind: Some(sw_model::EndpointKind::Device),
+        pubkeys: Some(PubKeys {
+            sign: sw_protocol::wire::Bytes(vec![0; 1952]),
+            seal: None,
+        }),
+        kid: None,
+        assertion: None,
+    };
+    assert!(Payload::from_value(11, device_without_seal.to_value()).is_err());
 }

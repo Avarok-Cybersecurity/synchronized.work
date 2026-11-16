@@ -1,49 +1,92 @@
-//! Payloads between an Endpoint and the node itself (types 11, 13, 14, 15, 16).
+//! Payloads between an Endpoint and the node (types 11, 13, 14, 15, 16). Text keys.
 
-use sw_model::{Cid, EndpointKind, Id128};
+use sw_model::{Cid, EndpointKind};
 
-use crate::model_wire::wire_code;
-use crate::wire::{Bytes, wire_map};
+use crate::WireError;
+use crate::wire::{Bytes, Raw, wire_str, wire_text};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EnrolOp {
     Enrol,
     Revoke,
 }
-wire_code!(EnrolOp { 0 => EnrolOp::Enrol, 1 => EnrolOp::Revoke });
+wire_str!(EnrolOp { "enrol" => EnrolOp::Enrol, "revoke" => EnrolOp::Revoke });
 
-wire_map! {
-    /// 11 `ENROL` / `REVOKE`: signed by the Person's **identity** key (rev 3). An enrol
-    /// carries `signing_pk`, plus `sealing_pk` exactly for a Device; a revoke names `kid`.
-    pub struct Enrol {
-        0 => op: EnrolOp,
-        1 => endpoint_cid: Cid,
-        2 => kind: EndpointKind,
-        3 => epoch: u64,
-        4 => signing_pk: Option<Bytes>,
-        5 => sealing_pk: Option<Bytes>,
-        6 => kid: Option<[u8; 32]>,
+wire_text! {
+    pub struct PubKeys {
+        /// ML-DSA-65 verifying key, 1952 bytes.
+        sign: Bytes,
+        /// ML-KEM-768 encapsulation key, 1184 bytes; a Device's.
+        seal: Option<Bytes>,
     }
 }
 
-wire_map! {
+wire_text! {
+    /// 11 `ENROL` / `REVOKE`, signed by the identity (root) key. An enrol names
+    /// `endpoint_cid`, `kind` and `pubkeys`; a revoke names `kid`. **ENROL by assertion**
+    /// (`sign-in-with-citadel.md` §6) carries `assertion` and is signed by the enrolling
+    /// Device's own key instead.
+    pub struct Enrol {
+        op: EnrolOp,
+        epoch: u64,
+        endpoint_cid: Option<Cid>,
+        kind: Option<EndpointKind>,
+        pubkeys: Option<PubKeys>,
+        kid: Option<[u8; 32]>,
+        assertion: Option<Bytes>,
+    }
+}
+
+impl Enrol {
+    pub(crate) fn validate(&self) -> Result<(), WireError> {
+        let ok = match self.op {
+            EnrolOp::Enrol => match (&self.endpoint_cid, &self.kind, &self.pubkeys, &self.kid) {
+                (Some(_), Some(kind), Some(keys), None) => {
+                    keys.sign.0.len() == sw_crypto::SIGN_PUBLIC_KEY_LEN
+                        && match (&keys.seal, kind) {
+                            (Some(seal), EndpointKind::Device) => {
+                                seal.0.len() == sw_crypto::KEM_ENCAPSULATION_KEY_LEN
+                            }
+                            (None, EndpointKind::Controller) => true,
+                            _ => false,
+                        }
+                }
+                _ => false,
+            },
+            EnrolOp::Revoke => {
+                self.kid.is_some()
+                    && self.endpoint_cid.is_none()
+                    && self.kind.is_none()
+                    && self.pubkeys.is_none()
+                    && self.assertion.is_none()
+            }
+        };
+        if ok {
+            Ok(())
+        } else {
+            Err(WireError::Shape("ENROL/REVOKE fields for its op"))
+        }
+    }
+}
+
+wire_text! {
     /// 13 `EVENT`: node → viewers, the visibility-filtered projection. Unsigned.
     pub struct Event {
-        0 => project_id: Id128,
-        1 => cursor: u64,
-        2 => kind: String,
-        3 => body: Bytes,
+        project_id: String,
+        cursor: u64,
+        kind: String,
+        body: Raw,
     }
 }
 
-wire_map! {
+wire_text! {
     /// 14 `NOTIFY`: a significant event for one Person's Endpoints. Unsigned.
     pub struct Notify {
-        0 => event_id: Id128,
-        1 => kind: String,
-        2 => subject: String,
-        3 => text: String,
-        4 => at: u64,
+        event_id: [u8; 32],
+        kind: String,
+        subject: String,
+        text: String,
+        at: u64,
     }
 }
 
@@ -52,14 +95,14 @@ pub enum SubscribeOp {
     Subscribe,
     Unsubscribe,
 }
-wire_code!(SubscribeOp { 0 => SubscribeOp::Subscribe, 1 => SubscribeOp::Unsubscribe });
+wire_str!(SubscribeOp { "subscribe" => SubscribeOp::Subscribe, "unsubscribe" => SubscribeOp::Unsubscribe });
 
-wire_map! {
+wire_text! {
     /// 15 `SUBSCRIBE` / `UNSUBSCRIBE`. Unsigned (a read).
     pub struct Subscribe {
-        0 => op: SubscribeOp,
-        1 => project_id: Id128,
-        2 => since_cursor: Option<u64>,
+        op: SubscribeOp,
+        project_id: String,
+        since_cursor: u64,
     }
 }
 
@@ -68,16 +111,33 @@ pub enum LinkOp {
     Code,
     Redeem,
 }
-wire_code!(LinkOp { 0 => LinkOp::Code, 1 => LinkOp::Redeem });
+wire_str!(LinkOp { "code" => LinkOp::Code, "redeem" => LinkOp::Redeem });
 
-wire_map! {
-    /// 16 `LINK_CODE` (Endpoint-signed; asks the node to mint a code) / `LINK_REDEEM`
-    /// (unsigned; carries the code and the App context, design §5.3).
+wire_text! {
+    /// 16 `LINK_CODE` (Endpoint-signed) / `LINK_REDEEM` (unsigned, with the App context).
     pub struct Link {
-        0 => op: LinkOp,
-        1 => code: Option<String>,
-        2 => acting_username: Option<String>,
-        3 => install_id: Option<String>,
-        4 => node_id: Option<String>,
+        op: LinkOp,
+        code: String,
+        acting_username: Option<String>,
+        install_id: Option<String>,
+        node_id: Option<String>,
+    }
+}
+
+impl Link {
+    pub const CODE_LEN: usize = 8;
+
+    pub(crate) fn validate(&self) -> Result<(), WireError> {
+        let context = [&self.acting_username, &self.install_id, &self.node_id];
+        let ok = self.code.chars().count() == Self::CODE_LEN
+            && match self.op {
+                LinkOp::Code => context.iter().all(|f| f.is_none()),
+                LinkOp::Redeem => context.iter().all(|f| f.is_some()),
+            };
+        if ok {
+            Ok(())
+        } else {
+            Err(WireError::Shape("LINK fields for its op"))
+        }
     }
 }

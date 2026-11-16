@@ -16,6 +16,7 @@ ciborium.workspace = true
 hmac.workspace = true
 sha3.workspace = true
 data-encoding.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

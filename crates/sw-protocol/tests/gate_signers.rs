@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // tests fail loudly by design
 
-//! Who may sign what, for whom (design §4.2, §6.1).
+//! Who may sign what, for whom (sw-wire contract §2, design §6.1).
 
 mod support;
 
@@ -9,7 +9,7 @@ use sw_protocol::body::Audience;
 use sw_protocol::gate::{Refusal, Verifier, accept_unsigned, verify};
 use sw_protocol::payload::*;
 use sw_protocol::replay::ReplayGuard;
-use sw_protocol::signed::{Signed, SwMessage};
+use sw_protocol::signed::SwMessage;
 use sw_testkit::{Cast, FIXTURE_NOW_MS as NOW, StandInIdentityPort as ID};
 
 #[cfg(target_arch = "wasm32")]
@@ -18,64 +18,83 @@ use wasm_bindgen_test::wasm_bindgen_test as test;
 #[test]
 fn signers_must_hold_the_right_role_cid_and_issuer() {
     let cast = Cast::new();
-    let ctl_cid = cast.alice_controller_cid;
-    let by_controller = Signed::sign(
-        &body(&cast, ctl_cid, Audience::Node, 1, 1, status()),
+    let ctl = cast.alice_controller_cid;
+    let fresh = || ReplayGuard::empty();
+    let by_controller = sign(
+        &body(&cast, ctl, Audience::Node, 1, 1, status()),
         &cast.alice_controller,
-    )
-    .unwrap();
+    );
     assert_eq!(
-        at_node(&cast, &by_controller, &mut ReplayGuard::empty(), ctl_cid),
+        at_node(&cast, &by_controller, &mut fresh(), ctl),
         Err(Refusal::WrongSigner)
     );
-    let by_identity = Signed::sign(
-        &body(&cast, ctl_cid, Audience::Node, 1, 1, status()),
+    let by_identity = sign(
+        &body(&cast, ctl, Audience::Node, 1, 1, status()),
         &cast.alice,
-    )
-    .unwrap();
+    );
     assert_eq!(
-        at_node(&cast, &by_identity, &mut ReplayGuard::empty(), ctl_cid),
+        at_node(&cast, &by_identity, &mut fresh(), ctl),
         Err(Refusal::WrongSigner)
     );
-    let wrong_from = Signed::sign(
+    let wrong_from = sign(
         &body(&cast, 9999, Audience::Node, 1, 1, status()),
         &cast.alice_device,
-    )
-    .unwrap();
+    );
     assert_eq!(
-        at_node(&cast, &wrong_from, &mut ReplayGuard::empty(), 9999),
+        at_node(&cast, &wrong_from, &mut fresh(), 9999),
         Err(Refusal::FromMismatch)
     );
-    let s = device_status(&cast, 1, 1);
+    let m = device_status(&cast, 1, 1);
     assert_eq!(
-        at_node(&cast, &s, &mut ReplayGuard::empty(), 4242),
+        at_node(&cast, &m, &mut fresh(), 4242),
         Err(Refusal::FromMismatch),
         "session CID"
     );
     let mut as_bob = body(&cast, cast.alice_device_cid, Audience::Node, 1, 1, status());
     as_bob.iss = cast.bob.id_fp();
-    let s = Signed::sign(&as_bob, &cast.alice_device).unwrap();
+    let m = sign(&as_bob, &cast.alice_device);
     assert_eq!(
-        at_node(&cast, &s, &mut ReplayGuard::empty(), cast.alice_device_cid),
+        at_node(&cast, &m, &mut fresh(), cast.alice_device_cid),
         Err(Refusal::IssuerMismatch)
     );
 }
 
 #[test]
-fn enrol_needs_the_identity_key() {
+fn the_outer_typ_must_be_the_body_typ() {
+    let cast = Cast::new();
+    let SwMessage::Signed { signed, .. } = device_status(&cast, 1, 1) else {
+        unreachable!()
+    };
+    let lying = SwMessage::Signed { typ: 3, signed };
+    let got = at_node(
+        &cast,
+        &lying,
+        &mut ReplayGuard::empty(),
+        cast.alice_device_cid,
+    );
+    assert_eq!(got, Err(Refusal::TypMismatch));
+}
+
+#[test]
+fn revoke_needs_the_identity_key() {
     let cast = Cast::new();
     let ctl = cast.alice_controller_cid;
-    let ok = Signed::sign(
-        &body(&cast, ctl, Audience::Node, 1, 1, enrol(&cast)),
+    let ok = sign(
+        &body(&cast, ctl, Audience::Node, 1, 1, revoke(&cast)),
         &cast.alice,
-    )
-    .unwrap();
+    );
     at_node(&cast, &ok, &mut ReplayGuard::empty(), ctl).unwrap();
-    let by_endpoint = Signed::sign(
-        &body(&cast, ctl, Audience::Node, 1, 1, enrol(&cast)),
+    let forged = tamper(&ok, |signed| signed.sig.0[7] ^= 1);
+    let got = at_node(&cast, &forged, &mut ReplayGuard::empty(), ctl);
+    assert_eq!(
+        got,
+        Err(Refusal::BadSignature),
+        "an identity signature is checked too"
+    );
+    let by_endpoint = sign(
+        &body(&cast, ctl, Audience::Node, 1, 1, revoke(&cast)),
         &cast.alice_controller,
-    )
-    .unwrap();
+    );
     assert_eq!(
         at_node(&cast, &by_endpoint, &mut ReplayGuard::empty(), ctl),
         Err(Refusal::WrongSigner)
@@ -86,13 +105,13 @@ fn enrol_needs_the_identity_key() {
 fn a_device_runs_only_signals_from_its_allowlist_addressed_to_it() {
     let cast = Cast::new();
     let dev = cast.alice_device_cid;
-    let at_device = |s: &Signed, cid| {
+    let at_device = |m: &SwMessage, cid| {
         verify(
-            s,
+            m,
             &cast.device_allowlist(),
             &ID,
             &mut ReplayGuard::empty(),
-            Verifier::Device { cid },
+            Verifier::Endpoint { cid },
             NOW,
         )
         .map(|_| ())
@@ -120,7 +139,7 @@ fn a_device_runs_only_signals_from_its_allowlist_addressed_to_it() {
         cast.alice_controller_cid,
     );
     assert_eq!(at_device(&elsewhere, dev), Err(Refusal::WrongAudience));
-    let at_node_too = prompt(
+    let relayed = prompt(
         &cast,
         dev,
         &cast.alice_controller,
@@ -128,7 +147,7 @@ fn a_device_runs_only_signals_from_its_allowlist_addressed_to_it() {
     );
     at_node(
         &cast,
-        &at_node_too,
+        &relayed,
         &mut ReplayGuard::empty(),
         cast.alice_controller_cid,
     )
@@ -140,10 +159,10 @@ fn signing_must_match_the_type() {
     let cast = Cast::new();
     let hello = Payload::Hello(Hello {
         protocol_version: 1,
-        endpoint_kind: sw_model::EndpointKind::Device,
+        endpoint_kind: HelloKind::Device,
         client_build: "x".into(),
     });
-    let s = Signed::sign(
+    let m = sign(
         &body(
             &cast,
             cast.alice_device_cid,
@@ -153,10 +172,9 @@ fn signing_must_match_the_type() {
             hello.clone(),
         ),
         &cast.alice_device,
-    )
-    .unwrap();
+    );
     assert_eq!(
-        at_node(&cast, &s, &mut ReplayGuard::empty(), cast.alice_device_cid),
+        at_node(&cast, &m, &mut ReplayGuard::empty(), cast.alice_device_cid),
         Err(Refusal::SigningMismatch)
     );
     assert!(accept_unsigned(SwMessage::Unsigned(hello)).is_ok());
@@ -164,7 +182,7 @@ fn signing_must_match_the_type() {
         accept_unsigned(SwMessage::Unsigned(status())),
         Err(Refusal::SigningMismatch)
     );
-    let raw = SwMessage::Signed(device_status(&cast, 1, 1));
+    let raw = device_status(&cast, 1, 1);
     assert_eq!(
         SwMessage::from_bytes(&raw.to_bytes().unwrap()).unwrap(),
         raw

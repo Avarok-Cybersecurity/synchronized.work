@@ -1,4 +1,4 @@
-//! The 17 message types (design §4.3) and their payloads.
+//! The 17 message types and their payloads (sw-wire contract §3).
 
 mod coop;
 mod node;
@@ -6,37 +6,41 @@ mod signal;
 mod status;
 
 pub use coop::{JoinAnswer, JoinRequest, Suggestion, TaskOp, TaskWrite};
-pub use node::{Enrol, EnrolOp, Event, Link, LinkOp, Notify, Subscribe, SubscribeOp};
-pub use signal::{ControlCode, ControlInner, PromptInner, PromptMode, SealedPayload};
+pub use node::{Enrol, EnrolOp, Event, Link, LinkOp, Notify, PubKeys, Subscribe, SubscribeOp};
+pub use signal::{ControlInner, ControlOp, PromptInner, PromptMode};
 pub use status::{
-    Ack, AckResult, Hello, Presence, ProgressEvent, ProgressItem, ProgressTail, StatusUpdate,
+    Ack, AckResult, Hello, HelloKind, Presence, ProgressEvent, ProgressItem, ProgressTail,
+    StatusUpdate,
 };
 
 use ciborium::value::Value;
 
 use crate::WireError;
+use crate::sealed::Sealed;
 use crate::wire::Wire;
 
-/// Size limits (design §4.3). The SSOT for every party.
+/// Size and time limits (sw-wire contract §2, §3). The SSOT for every party.
 pub mod limits {
     pub const PROGRESS_EVENTS_PER_BATCH: usize = 64;
     pub const PROGRESS_BODY_BYTES: usize = 512;
     pub const TAIL_LINE_BYTES: usize = 512;
     pub const JOIN_NOTE_BYTES: usize = 280;
     pub const SUGGESTION_BYTES: usize = 2048;
-    /// Lifetime (`exp - iat`) of a signal (`PROMPT`, `CONTROL`).
-    pub const SIGNAL_LIFETIME_MS: u64 = 24 * 60 * 60 * 1000;
-    /// Lifetime of every other signed message.
-    pub const OTHER_LIFETIME_MS: u64 = 5 * 60 * 1000;
+    /// `exp - iat` for 2, 3, 4, 5, 6 and 17.
+    pub const LONG_LIFETIME_MS: u64 = 24 * 60 * 60 * 1000;
+    /// `exp - iat` for every other signed type.
+    pub const SHORT_LIFETIME_MS: u64 = 5 * 60 * 1000;
     /// How far in the future an `iat` may be.
     pub const MAX_CLOCK_SKEW_MS: u64 = 60 * 1000;
 }
 
-/// Which key must sign a message of a type.
+/// Which key must sign a message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerRole {
-    /// The Person's portable identity key (`ENROL` / `REVOKE`).
+    /// The Person's portable identity (root) key: `ENROL` / `REVOKE`.
     Identity,
+    /// `ENROL` by assertion: the enrolling Device's own key, named in the payload.
+    EnrollingEndpoint,
     Device,
     Controller,
     /// Any enrolled Endpoint of the issuer.
@@ -48,8 +52,8 @@ pub enum Payload {
     Hello(Hello),
     StatusUpdate(StatusUpdate),
     ProgressEvent(ProgressEvent),
-    Prompt(SealedPayload),
-    Control(SealedPayload),
+    Prompt(Sealed),
+    Control(Sealed),
     Ack(Ack),
     Presence(Presence),
     JoinRequest(JoinRequest),
@@ -67,7 +71,7 @@ pub enum Payload {
 macro_rules! dispatch {
     ($($code:literal => $variant:ident($t:ty)),* $(,)?) => {
         impl Payload {
-            /// The `typ` code (design §4.3).
+            /// The `typ` code.
             pub fn typ(&self) -> u8 {
                 match self { $(Self::$variant(_) => $code),* }
             }
@@ -88,22 +92,22 @@ macro_rules! dispatch {
 
 dispatch! {
     1 => Hello(Hello), 2 => StatusUpdate(StatusUpdate), 3 => ProgressEvent(ProgressEvent),
-    4 => Prompt(SealedPayload), 5 => Control(SealedPayload), 6 => Ack(Ack),
-    7 => Presence(Presence), 8 => JoinRequest(JoinRequest), 9 => JoinAnswer(JoinAnswer),
-    10 => TaskWrite(TaskWrite), 11 => Enrol(Enrol), 12 => Suggestion(Suggestion),
-    13 => Event(Event), 14 => Notify(Notify), 15 => Subscribe(Subscribe), 16 => Link(Link),
-    17 => ProgressTail(ProgressTail),
+    4 => Prompt(Sealed), 5 => Control(Sealed), 6 => Ack(Ack), 7 => Presence(Presence),
+    8 => JoinRequest(JoinRequest), 9 => JoinAnswer(JoinAnswer), 10 => TaskWrite(TaskWrite),
+    11 => Enrol(Enrol), 12 => Suggestion(Suggestion), 13 => Event(Event), 14 => Notify(Notify),
+    15 => Subscribe(Subscribe), 16 => Link(Link), 17 => ProgressTail(ProgressTail),
 }
 
 impl Payload {
-    /// `None` for the types that travel unsigned (reads, presence, node-originated data,
-    /// `LINK_REDEEM`); otherwise the key that must sign. A signed message of an unsigned
-    /// type and an unsigned message of a signed type are both refused.
+    /// `None` for what travels unsigned in slot 2 (1, 7, 13, 14, 15, `LINK_REDEEM`);
+    /// otherwise the key that must sign. A signed message of an unsigned type and an
+    /// unsigned message of a signed type are both refused.
     pub fn signer(&self) -> Option<SignerRole> {
         match self {
             Self::Hello(_) | Self::Presence(_) | Self::Event(_) | Self::Notify(_) => None,
             Self::Subscribe(_) => None,
             Self::Link(link) if link.op == LinkOp::Redeem => None,
+            Self::Enrol(e) if e.assertion.is_some() => Some(SignerRole::EnrollingEndpoint),
             Self::Enrol(_) => Some(SignerRole::Identity),
             Self::StatusUpdate(_) | Self::ProgressEvent(_) | Self::Ack(_) => {
                 Some(SignerRole::Device)
@@ -118,24 +122,23 @@ impl Payload {
         }
     }
 
-    /// The longest `exp - iat` allowed (design §4.2).
+    /// The longest `exp - iat` allowed.
     pub fn max_lifetime_ms(&self) -> u64 {
-        match self {
-            Self::Prompt(_) | Self::Control(_) => limits::SIGNAL_LIFETIME_MS,
-            _ => limits::OTHER_LIFETIME_MS,
+        match self.typ() {
+            2 | 3 | 4 | 5 | 6 | 17 => limits::LONG_LIFETIME_MS,
+            _ => limits::SHORT_LIFETIME_MS,
         }
     }
 
-    /// May travel over Citadel P2P (design §4.8).
+    /// Addressed to an Endpoint's CID (4, 5 → the Device; 6, 17 → the Controller) rather than
+    /// to the node; the node relays these.
+    pub fn addressed_to_endpoint(&self) -> bool {
+        matches!(self.typ(), 4 | 5 | 6 | 17)
+    }
+
+    /// May travel over Citadel P2P (design §4.8); everything else is refused there.
     pub fn p2p_eligible(&self) -> bool {
-        matches!(
-            self,
-            Self::ProgressEvent(_)
-                | Self::Prompt(_)
-                | Self::Control(_)
-                | Self::Ack(_)
-                | Self::ProgressTail(_)
-        )
+        matches!(self.typ(), 3 | 4 | 5 | 6 | 17)
     }
 
     fn check_limits(&self) -> Result<(), WireError> {
@@ -149,8 +152,11 @@ impl Payload {
             Self::ProgressTail(t) => over(&t.line, TAIL_LINE_BYTES),
             Self::JoinRequest(j) => over(&j.note, JOIN_NOTE_BYTES),
             Self::Suggestion(s) => over(&s.text, SUGGESTION_BYTES),
-            Self::TaskWrite(t) => t.embedding.as_ref().is_some_and(|e| e.len() != 256),
-            Self::Prompt(s) | Self::Control(s) => s.sealed.check_shape().is_err(),
+            Self::Prompt(s) | Self::Control(s) => s.check_shape().is_err(),
+            Self::TaskWrite(t) => return t.fields.expect_map(),
+            Self::Event(e) => return e.body.expect_map(),
+            Self::Enrol(e) => return e.validate(),
+            Self::Link(l) => return l.validate(),
             _ => false,
         };
         if bad {

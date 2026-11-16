@@ -1,23 +1,21 @@
 //! Envelope builders shared by the gate tests.
 #![allow(dead_code, clippy::unwrap_used)]
 
-use sw_model::{Id128, Lane};
 use sw_protocol::body::{Audience, Body};
 use sw_protocol::gate::{Refusal, Verifier, verify};
 use sw_protocol::payload::*;
 use sw_protocol::ports::MessageSigner;
 use sw_protocol::replay::ReplayGuard;
 use sw_protocol::sealed::Sealed;
-use sw_protocol::signed::Signed;
+use sw_protocol::signed::SwMessage;
+use sw_protocol::wire::Bytes;
 use sw_testkit::{Cast, FIXTURE_NOW_MS as NOW, LabelledEntropy, StandInIdentityPort as ID};
-
-pub const NOW_MS: u64 = NOW;
 
 pub fn status() -> Payload {
     Payload::StatusUpdate(StatusUpdate {
-        agent_id: Id128([1; 16]),
-        task_id: Id128([2; 16]),
-        lane: Lane::Running,
+        agent_id: "agent-1".into(),
+        task_id: "task-1".into(),
+        lane: "working".into(),
         blockers: vec![],
         harness: "h".into(),
     })
@@ -36,64 +34,89 @@ pub fn body(cast: &Cast, from: u64, aud: Audience, seq: u64, nonce: u8, payload:
     }
 }
 
-pub fn device_status(cast: &Cast, seq: u64, nonce: u8) -> Signed {
-    let b = body(
-        cast,
-        cast.alice_device_cid,
-        Audience::Node,
-        seq,
-        nonce,
-        status(),
-    );
-    Signed::sign(&b, &cast.alice_device).unwrap()
+pub fn sign(body: &Body, key: &dyn MessageSigner) -> SwMessage {
+    SwMessage::signed(body, key).unwrap()
+}
+
+pub fn device_status(cast: &Cast, seq: u64, nonce: u8) -> SwMessage {
+    sign(
+        &body(
+            cast,
+            cast.alice_device_cid,
+            Audience::Node,
+            seq,
+            nonce,
+            status(),
+        ),
+        &cast.alice_device,
+    )
 }
 
 pub fn at_node(
     cast: &Cast,
-    s: &Signed,
+    m: &SwMessage,
     replay: &mut ReplayGuard,
     from: u64,
 ) -> Result<(), Refusal> {
     let v = Verifier::Node { session_cid: from };
-    verify(s, &cast.node_directory(), &ID, replay, v, NOW).map(|_| ())
+    verify(m, &cast.node_directory(), &ID, replay, v, NOW).map(|_| ())
 }
 
-pub fn enrol(cast: &Cast) -> Payload {
+/// Applies `f` to the `Signed` envelope inside a signed message.
+pub fn tamper(m: &SwMessage, f: impl FnOnce(&mut sw_protocol::signed::Signed)) -> SwMessage {
+    let mut m = m.clone();
+    if let SwMessage::Signed { signed, .. } = &mut m {
+        f(signed);
+    }
+    m
+}
+
+pub fn revoke(cast: &Cast) -> Payload {
     Payload::Enrol(Enrol {
         op: EnrolOp::Revoke,
-        endpoint_cid: cast.alice_device_cid,
-        kind: sw_model::EndpointKind::Device,
         epoch: 2,
-        signing_pk: None,
-        sealing_pk: None,
+        endpoint_cid: None,
+        kind: None,
+        pubkeys: None,
         kid: Some(sw_crypto::kid_of(cast.alice_device.public_key())),
+        assertion: None,
     })
 }
 
-pub fn prompt(cast: &Cast, aud_device: u64, by: &dyn MessageSigner, from: u64) -> Signed {
+pub fn enrol_by_assertion(cast: &Cast, cid: u64) -> Payload {
+    Payload::Enrol(Enrol {
+        op: EnrolOp::Enrol,
+        epoch: 1,
+        endpoint_cid: Some(cid),
+        kind: Some(sw_model::EndpointKind::Controller),
+        pubkeys: Some(PubKeys {
+            sign: Bytes(cast.bob_controller.public_key().to_vec()),
+            seal: None,
+        }),
+        kid: None,
+        assertion: Some(Bytes(vec![0x01, 0x02])),
+    })
+}
+
+pub fn prompt(cast: &Cast, aud_device: u64, by: &dyn MessageSigner, from: u64) -> SwMessage {
     let inner = PromptInner {
-        task_id: Id128([2; 16]),
-        agent_id: None,
+        aud: aud_device,
+        task_id: "task-1".into(),
         text: "go".into(),
         mode: PromptMode::Queue,
+        agent_id: None,
         reply_to: None,
     };
     let mut e = LabelledEntropy::new("gate-test");
-    let sealed = Sealed::seal(
-        cast.alice_device_kem.encapsulation_key(),
-        aud_device,
-        &inner,
-        &mut e,
-    )
-    .unwrap();
+    let sealed = Sealed::seal(cast.alice_device_kem.encapsulation_key(), &inner, &mut e).unwrap();
     let mut b = body(
         cast,
         from,
-        Audience::Device(aud_device),
+        Audience::Endpoint(aud_device),
         1,
         4,
-        Payload::Prompt(SealedPayload { sealed }),
+        Payload::Prompt(sealed),
     );
     b.exp = NOW + 60 * 60 * 1000;
-    Signed::sign(&b, by).unwrap()
+    sign(&b, by)
 }

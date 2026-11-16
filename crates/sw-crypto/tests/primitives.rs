@@ -92,10 +92,13 @@ fn aead_refuses_tampering_and_wrong_aad() {
 
 #[test]
 fn hkdf_separates_by_info() {
-    let a = hkdf_sha3_256(b"ikm", b"sw/seal/1").unwrap();
-    let b = hkdf_sha3_256(b"ikm", b"sw/seal/2").unwrap();
+    let a = hkdf_sha256(b"ikm", b"sw/seal/1").unwrap();
+    let b = hkdf_sha256(b"ikm", b"sw/seal/2").unwrap();
     assert_ne!(a, b);
-    assert_eq!(a, hkdf_sha3_256(b"ikm", b"sw/seal/1").unwrap());
+    assert_eq!(a, hkdf_sha256(b"ikm", b"sw/seal/1").unwrap());
+    // RFC 5869 test case 3 (SHA-256, zero-length salt and info), first 32 bytes.
+    let okm = hkdf_sha256(&[0x0b; 22], b"").unwrap();
+    assert_eq!(okm[..4], [0x8d, 0xa4, 0xe7, 0x75]);
 }
 
 #[test]

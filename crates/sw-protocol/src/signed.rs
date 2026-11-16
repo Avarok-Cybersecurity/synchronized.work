@@ -1,4 +1,5 @@
-//! `Signed { alg, kid, body, sig }` and the unsigned/signed `SwMessage` frame.
+//! `Signed {1: alg, 2: kid, 3: body, 4: sig}` and the `SwMessage` frame
+//! `{1: typ, 2: unsigned payload | 3: Signed}` (sw-wire contract §2).
 
 use ciborium::value::Value;
 use sw_crypto::{Kid, kid_of, sha256};
@@ -10,19 +11,17 @@ use crate::wire::{Bytes, MapIn, MapOut, Raw, Wire, wire_map};
 use crate::{WireError, cbor};
 
 pub const SIGN_ALG: &str = "ML-DSA-65";
-/// Domain separation: a synchronized.work signature can never be replayed as any other
-/// protocol's ML-DSA signature over the same bytes.
-pub const SIGN_DOMAIN: &[u8] = b"synchronized.work/signed/v1\0";
-pub const WIRE_VERSION: u8 = 1;
+/// Domain separation: `"sw-signed-v1" ‖ 0x00 ‖ body bytes`.
+pub const SIGN_DOMAIN: &[u8] = b"sw-signed-v1\0";
 
 wire_map! {
     pub struct Signed {
-        0 => alg: String,
+        1 => alg: String,
         /// `SHA-256` of the signer's verifying key.
-        1 => kid: Kid,
+        2 => kid: Kid,
         /// The canonical CBOR of the [`Body`], exactly as signed.
-        2 => body: Bytes,
-        3 => sig: Bytes,
+        3 => body: Bytes,
+        4 => sig: Bytes,
     }
 }
 
@@ -43,7 +42,7 @@ impl Signed {
         })
     }
 
-    /// `signal_id = SHA-256(Signed)` over its canonical bytes (design §4.5).
+    /// `signal_id = SHA-256(Signed bytes)`: the canonical encoding of this map.
     pub fn signal_id(&self) -> Result<[u8; 32], WireError> {
         Ok(sha256(&cbor::encode(&self.to_value())?))
     }
@@ -51,22 +50,33 @@ impl Signed {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SwMessage {
-    /// Reads, presence and node-originated data: `{0: 1, 1: typ, 2: payload}`.
+    /// Reads, presence, node-originated data, `LINK_REDEEM`: slot 2.
     Unsigned(Payload),
-    /// Everything that writes: `{0: 1, 3: Signed}`.
-    Signed(Signed),
+    /// Everything that writes: slot 3. `typ` is carried beside the envelope so a relay can
+    /// route without opening it; the gate refuses it unless it equals `Body[1]`.
+    Signed { typ: u8, signed: Signed },
 }
 
 impl SwMessage {
+    /// A signed message whose outer `typ` is taken from the body it carries.
+    pub fn signed(body: &Body, signer: &dyn MessageSigner) -> Result<Self, WireError> {
+        Ok(Self::Signed {
+            typ: body.payload.typ(),
+            signed: Signed::sign(body, signer)?,
+        })
+    }
+
     pub fn to_bytes(&self) -> Result<Vec<u8>, WireError> {
         let mut out = MapOut::default();
-        out.field(0, &WIRE_VERSION);
         match self {
             Self::Unsigned(p) => {
-                out.field(1, &p.typ());
-                out.field(2, &Raw(p.to_value()));
+                out.field(1u64, &p.typ());
+                out.field(2u64, &Raw(p.to_value()));
             }
-            Self::Signed(s) => out.field(3, s),
+            Self::Signed { typ, signed } => {
+                out.field(1u64, typ);
+                out.field(3u64, signed);
+            }
         }
         cbor::encode(&out.build())
     }
@@ -77,18 +87,15 @@ impl SwMessage {
 
     fn from_value(value: Value) -> Result<Self, WireError> {
         let mut map = MapIn::new(value)?;
-        if map.field::<u8>(0)? != WIRE_VERSION {
-            return Err(WireError::Range("wire version"));
-        }
-        let typ: Option<u8> = map.field(1)?;
-        let payload: Option<Raw> = map.field(2)?;
-        let signed: Option<Signed> = map.field(3)?;
+        let typ: u8 = map.field(1u64)?;
+        let payload: Option<Raw> = map.field(2u64)?;
+        let signed: Option<Signed> = map.field(3u64)?;
         map.finish()?;
-        match (typ, payload, signed) {
-            (Some(typ), Some(Raw(p)), None) => Ok(Self::Unsigned(Payload::from_value(typ, p)?)),
-            (None, None, Some(s)) => Ok(Self::Signed(s)),
+        match (payload, signed) {
+            (Some(Raw(p)), None) => Ok(Self::Unsigned(Payload::from_value(typ, p)?)),
+            (None, Some(signed)) => Ok(Self::Signed { typ, signed }),
             _ => Err(WireError::Shape(
-                "SwMessage is either {typ, payload} or {signed}",
+                "SwMessage holds exactly one of slot 2 and slot 3",
             )),
         }
     }

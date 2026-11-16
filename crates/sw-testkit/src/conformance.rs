@@ -1,123 +1,191 @@
-//! The conformance check (design §11.1 gate 6, §11.4): one function run natively by
-//! `cargo test` and `xtask conformance`, and on wasm32 by `wasm-bindgen-test`, so "decodes
+//! The conformance check against C0's frozen fixtures (`fixtures/sw-wire/`, mirrored byte for
+//! byte from `docs/contracts/batch-1116/fixtures/sw-wire/`). One function, run natively by
+//! `cargo test` and `xtask conformance` and on wasm32 by `wasm-bindgen-test`, so "decodes
 //! identically on both targets" is the same code judging the same bytes.
 
-use sw_crypto::sha3_256;
-use sw_protocol::body::Audience;
+use serde_json::Value as Json;
+use sw_protocol::body::{Audience, Body};
 use sw_protocol::cbor;
-use sw_protocol::gate::{Verifier, verify};
+use sw_protocol::gate::{Verifier, verify, verify_p2p};
 use sw_protocol::p2p::decode_p2p;
-use sw_protocol::payload::{ControlInner, Payload, PromptInner};
+use sw_protocol::payload::{Payload, PromptInner};
+use sw_protocol::record::{record_from_bytes, record_to_bytes};
 use sw_protocol::replay::ReplayGuard;
-use sw_protocol::signed::SwMessage;
+use sw_protocol::signed::{SwMessage, signed_message};
 
-use crate::{Cast, FIXTURE_NOW_MS, StandInIdentityPort};
+use crate::kat::Kat;
+use crate::model::{hex, to_model, unhex};
+use crate::{ReplayedEntropy, StandInIdentityPort};
 
-/// The diagnostic-notation file that pins a fixture's decoded form.
-pub fn diag_name(fixture: &str) -> String {
-    format!("{}.diag", fixture.trim_end_matches(".cbor"))
+/// Judges one fixture file. An `invalid-*` fixture passes only if it is refused.
+pub fn check(file: &str, fixture: &str, kat: &Kat) -> Result<(), String> {
+    let j: Json = serde_json::from_str(fixture).map_err(|e| format!("{file}: {e}"))?;
+    let field = |k: &str| {
+        j.get(k)
+            .and_then(Json::as_str)
+            .ok_or(format!("{file}: no {k}"))
+    };
+    let bytes = unhex(field("cbor_hex")?)?;
+    let model = j.get("model").ok_or(format!("{file}: no model"))?;
+    let judged = judge(&j, &bytes, model, kat);
+    match (file.starts_with("invalid-"), judged) {
+        (false, Ok(())) | (true, Err(_)) => Ok(()),
+        (false, Err(e)) => Err(format!("{file}: {e}")),
+        (true, Ok(())) => Err(format!("{file}: accepted bytes it must refuse")),
+    }
 }
 
-pub fn diagnostic(bytes: &[u8]) -> Result<String, String> {
+fn judge(j: &Json, bytes: &[u8], model: &Json, kat: &Kat) -> Result<(), String> {
     let value = cbor::decode(bytes).map_err(|e| format!("not canonical CBOR: {e}"))?;
-    Ok(cbor::diagnostic(&value))
-}
-
-/// `MANIFEST`: one `<sha3-256 hex>  <name>` line per fixture, sorted by name.
-pub fn manifest(fixtures: &[(&str, Vec<u8>)]) -> String {
-    let mut lines: Vec<String> = fixtures
-        .iter()
-        .map(|(name, bytes)| {
-            let hex: String = sha3_256(bytes).iter().map(|b| format!("{b:02x}")).collect();
-            format!("{hex}  {name}\n")
-        })
-        .collect();
-    lines.sort_by(|a, b| a[66..].cmp(&b[66..]));
-    lines.concat()
-}
-
-/// Accepts a fixture only if it is canonical, its diagnostic text is `expected_diag`, it
-/// round-trips byte for byte, and — when signed — it passes the gate, and its sealed signal
-/// opens for the Device it names.
-pub fn check(name: &str, bytes: &[u8], expected_diag: &str) -> Result<(), String> {
-    let fail = |why: String| Err(format!("{name}: {why}"));
-    let diag = diagnostic(bytes).map_err(|why| format!("{name}: {why}"))?;
-    if diag.trim() != expected_diag.trim() {
-        return fail("decodes to a different diagnostic than its .diag file".into());
+    if &to_model(&value)? != model {
+        return Err("decodes to something other than its model".into());
     }
-    let p2p = name.ends_with(".p2p.cbor");
-    let inner = if p2p {
-        decode_p2p(bytes).map_err(|e| format!("{name}: p2p envelope: {e}"))?
-    } else {
-        bytes.to_vec()
-    };
-    let message = SwMessage::from_bytes(&inner).map_err(|e| format!("{name}: decode: {e}"))?;
-    if message
-        .to_bytes()
-        .map_err(|e| format!("{name}: re-encode: {e}"))?
-        != inner
-    {
-        return fail("does not re-encode to the same bytes".into());
-    }
-    let SwMessage::Signed(signed) = message else {
-        return Ok(());
-    };
-    let cast = Cast::new();
-    let dir = cast.node_directory();
-    let from = sw_protocol::body::Body::from_bytes(&signed.body.0)
-        .map_err(|e| format!("{name}: body: {e}"))?
-        .from;
-    let verifier = if p2p {
-        Verifier::Device {
-            cid: cast.alice_device_cid,
-        }
-    } else {
-        Verifier::Node { session_cid: from }
-    };
-    let mut replay = ReplayGuard::empty();
-    let verified = verify(
-        &signed,
-        &dir,
-        &StandInIdentityPort,
-        &mut replay,
-        verifier,
-        FIXTURE_NOW_MS,
-    )
-    .map_err(|r| format!("{name}: gate refused: {r:?}"))?;
-    if p2p && !verified.body.payload.p2p_eligible() {
-        return fail("type is not eligible for P2P".into());
-    }
-    let device = Verifier::Device {
-        cid: cast.alice_device_cid,
-    };
-    match (&verified.body.payload, verified.body.aud) {
-        (Payload::Prompt(s), Audience::Device(_)) => {
-            verify(
-                &signed,
-                &cast.device_allowlist(),
+    match (
+        j.get("typ").and_then(Json::as_u64),
+        j.get("name").and_then(Json::as_str),
+    ) {
+        (Some(typ), _) => message(bytes, typ, j, kat),
+        (None, Some("p2p-envelope")) => {
+            let inner = decode_p2p(bytes).map_err(|e| format!("p2p envelope: {e}"))?;
+            let msg = round_trip(&inner)?;
+            let body = body_of(&msg)?;
+            let own = endpoint_aud(&body)?;
+            verify_p2p(
+                &msg,
+                &kat.node_directory(),
                 &StandInIdentityPort,
                 &mut ReplayGuard::empty(),
-                device,
-                FIXTURE_NOW_MS,
+                own,
+                body.iat,
             )
-            .map_err(|r| format!("{name}: device gate refused: {r:?}"))?;
-            let (aud, _) = s
-                .sealed
-                .open::<PromptInner>(&cast.alice_device_kem)
-                .map_err(|e| format!("{name}: open: {e:?}"))?;
-            (aud == cast.alice_device_cid)
-                .then_some(())
-                .ok_or(format!("{name}: inner aud"))
+            .map(|_| ())
+            .map_err(|r| format!("p2p gate refused: {r:?}"))
         }
-        (Payload::Control(s), Audience::Device(_)) => {
-            let (aud, _) = s
-                .sealed
-                .open::<ControlInner>(&cast.alice_device_kem)
-                .map_err(|e| format!("{name}: open: {e:?}"))?;
-            (aud == cast.alice_device_cid)
+        (None, Some("person-record")) => {
+            let record = record_from_bytes(bytes).map_err(|e| format!("record: {e}"))?;
+            let again = record_to_bytes(&record).map_err(|e| format!("record: {e}"))?;
+            let keys_match = record.id_fp == kat.person && record.pk == kat.identity_pk;
+            (again == bytes && keys_match)
                 .then_some(())
-                .ok_or(format!("{name}: inner aud"))
+                .ok_or("record does not round-trip to the KAT".into())
         }
+        (None, other) => Err(format!("no rule for untyped fixture {other:?}")),
+    }
+}
+
+fn round_trip(bytes: &[u8]) -> Result<SwMessage, String> {
+    let msg = SwMessage::from_bytes(bytes).map_err(|e| format!("decode: {e}"))?;
+    if msg.to_bytes().map_err(|e| format!("re-encode: {e}"))? != bytes {
+        return Err("does not re-encode to the same bytes".into());
+    }
+    Ok(msg)
+}
+
+fn body_of(msg: &SwMessage) -> Result<Body, String> {
+    match msg {
+        SwMessage::Signed { signed, .. } => {
+            Body::from_bytes(&signed.body.0).map_err(|e| format!("body: {e}"))
+        }
+        SwMessage::Unsigned(_) => Err("expected a signed message".into()),
+    }
+}
+
+fn endpoint_aud(body: &Body) -> Result<u64, String> {
+    match body.aud {
+        Audience::Endpoint(cid) => Ok(cid),
+        Audience::Node => Err("expected an Endpoint audience".into()),
+    }
+}
+
+fn message(bytes: &[u8], typ: u64, j: &Json, kat: &Kat) -> Result<(), String> {
+    let msg = round_trip(bytes)?;
+    let SwMessage::Signed { typ: outer, signed } = &msg else {
+        let SwMessage::Unsigned(p) = &msg else {
+            unreachable!()
+        };
+        return (u64::from(p.typ()) == typ)
+            .then_some(())
+            .ok_or("typ".into());
+    };
+    if u64::from(*outer) != typ {
+        return Err("SwMessage[1] is not the fixture's typ".into());
+    }
+    let body = body_of(&msg)?;
+    let dir = kat.node_directory();
+    let node = Verifier::Node {
+        session_cid: body.from,
+    };
+    verify(
+        &msg,
+        &dir,
+        &StandInIdentityPort,
+        &mut ReplayGuard::empty(),
+        node,
+        body.iat,
+    )
+    .map_err(|r| format!("node gate refused: {r:?}"))?;
+    if let Audience::Endpoint(cid) = body.aud {
+        verify(
+            &msg,
+            &dir,
+            &StandInIdentityPort,
+            &mut ReplayGuard::empty(),
+            Verifier::Endpoint { cid },
+            body.iat,
+        )
+        .map_err(|r| format!("endpoint gate refused: {r:?}"))?;
+    }
+    let resign = |key: &sw_crypto::SigningKey| key.sign(&signed_message(&signed.body.0)).to_vec();
+    let same_sig = if signed.kid == sw_crypto::kid_of(kat.device.public_key()) {
+        resign(&kat.device) == signed.sig.0
+    } else if signed.kid == sw_crypto::kid_of(kat.controller.public_key()) {
+        resign(&kat.controller) == signed.sig.0
+    } else {
+        true // the identity's seed is not in the sw KAT; its signature was verified above
+    };
+    if !same_sig {
+        return Err("deterministic re-signing gives different bytes".into());
+    }
+    match &body.payload {
+        Payload::Prompt(sealed) => prompt_kat(sealed, j, kat),
         _ => Ok(()),
     }
+}
+
+/// `04-prompt-sealed`: the Device opens it to the published plaintext, and sealing that
+/// plaintext again with the published `m` and nonce gives the same `Sealed` bytes.
+fn prompt_kat(sealed: &sw_protocol::sealed::Sealed, j: &Json, kat: &Kat) -> Result<(), String> {
+    let want = |k: &str| j.get(k).and_then(Json::as_str).ok_or(format!("no {k}"));
+    let ss = kat
+        .device_kem
+        .decapsulate(&sealed.ct.0)
+        .map_err(|e| e.to_string())?;
+    if hex(ss.as_slice()) != want("shared_secret_hex")? {
+        return Err("shared secret differs from the KAT".into());
+    }
+    let key = sw_crypto::hkdf_sha256(ss.as_slice(), sw_protocol::sealed::SEAL_INFO)
+        .map_err(|e| e.to_string())?;
+    if hex(&key) != want("aead_key_hex")? {
+        return Err("AEAD key differs from the KAT".into());
+    }
+    let plaintext = sealed
+        .open_bytes(&kat.device_kem)
+        .map_err(|e| format!("open: {e:?}"))?;
+    if hex(&plaintext) != want("inner_plaintext_hex")? {
+        return Err("inner plaintext differs from the KAT".into());
+    }
+    let inner: PromptInner = sealed
+        .open(&kat.device_kem)
+        .map_err(|e| format!("open: {e:?}"))?;
+    if inner.aud != kat.device_cid {
+        return Err("inner aud is not the Device".into());
+    }
+    let mut entropy =
+        ReplayedEntropy::new([unhex(want("kem_m_hex")?)?, sealed.n.to_vec()].concat());
+    let again =
+        sw_protocol::sealed::Sealed::seal(kat.device_kem.encapsulation_key(), &inner, &mut entropy)
+            .map_err(|e| format!("reseal: {e:?}"))?;
+    (again == *sealed && entropy.exhausted())
+        .then_some(())
+        .ok_or("resealing does not reproduce the fixture".into())
 }

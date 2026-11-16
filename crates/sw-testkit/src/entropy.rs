@@ -33,3 +33,32 @@ impl Entropy for LabelledEntropy {
         }
     }
 }
+
+/// Exactly the given bytes, in order; running out is a broken known-answer setup.
+#[derive(Debug, Clone)]
+pub struct ReplayedEntropy {
+    bytes: Vec<u8>,
+    at: usize,
+}
+
+impl ReplayedEntropy {
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self { bytes, at: 0 }
+    }
+
+    pub fn exhausted(&self) -> bool {
+        self.at == self.bytes.len()
+    }
+}
+
+impl Entropy for ReplayedEntropy {
+    fn fill(&mut self, out: &mut [u8]) {
+        let end = self.at + out.len();
+        out.copy_from_slice(
+            self.bytes
+                .get(self.at..end)
+                .expect("known-answer entropy ran out"),
+        );
+        self.at = end;
+    }
+}

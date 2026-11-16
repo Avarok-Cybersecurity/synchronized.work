@@ -19,9 +19,8 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("file-length") => file_length::run(&root),
         Some("sbio") => sbio::run(&root),
-        Some("conformance") => conformance::run(&root),
-        Some("gen-fixtures") => conformance::generate(&root),
-        _ => Err("usage: xtask <file-length | sbio | conformance | gen-fixtures>".to_owned()),
+        Some("conformance") => conformance::run(&root, &args[1..]),
+        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir>]>".to_owned()),
     };
     match result {
         Ok(verdict) => {

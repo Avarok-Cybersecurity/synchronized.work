@@ -17,10 +17,11 @@ pub fn kid_of(public_key: &[u8]) -> Kid {
     sha256(public_key)
 }
 
-/// HKDF-SHA3-256 with no salt, expanding `ikm` under `info` to one 32-byte key.
-pub fn hkdf_sha3_256(ikm: &[u8], info: &[u8]) -> Result<[u8; 32], CryptoError> {
+/// HKDF-SHA-256 with no salt, expanding `ikm` under `info` to one 32-byte key (the seal KDF,
+/// sw-wire contract §2).
+pub fn hkdf_sha256(ikm: &[u8], info: &[u8]) -> Result<[u8; 32], CryptoError> {
     let mut okm = [0u8; 32];
-    Hkdf::<Sha3_256>::new(None, ikm)
+    Hkdf::<sha2::Sha256>::new(None, ikm)
         .expand(info, &mut okm)
         .map_err(|_| CryptoError::Malformed("hkdf output length"))?;
     Ok(okm)

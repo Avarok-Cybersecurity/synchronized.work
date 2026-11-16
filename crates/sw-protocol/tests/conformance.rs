@@ -1,85 +1,69 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // tests fail loudly by design
 
-//! The committed fixtures, judged by the shared check natively and on wasm32
+//! C0's frozen fixtures, judged by the shared check natively and on wasm32
 //! (`cargo test --target wasm32-unknown-unknown` runs this file in node).
+
+use sw_testkit::conformance::check;
+use sw_testkit::kat::Kat;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_test::wasm_bindgen_test as test;
 
 macro_rules! fixtures {
-    ($($name:literal => $diag:literal),* $(,)?) => {
-        const FIXTURES: &[(&str, &[u8], &str)] = &[
-            $(($name, include_bytes!(concat!("../../../fixtures/", $name)), include_str!(concat!("../../../fixtures/", $diag)))),*
+    ($($name:literal),* $(,)?) => {
+        const FIXTURES: &[(&str, &str)] = &[
+            $(($name, include_str!(concat!("../../../fixtures/sw-wire/", $name)))),*
         ];
     };
 }
 
 fixtures! {
-    "01-hello.cbor" => "01-hello.diag",
-    "02-status-update.cbor" => "02-status-update.diag",
-    "03-progress-event.cbor" => "03-progress-event.diag",
-    "04-prompt.cbor" => "04-prompt.diag",
-    "05-control.cbor" => "05-control.diag",
-    "06-ack.cbor" => "06-ack.diag",
-    "07-presence.cbor" => "07-presence.diag",
-    "08-join-request.cbor" => "08-join-request.diag",
-    "09-join-answer.cbor" => "09-join-answer.diag",
-    "10-task-write.cbor" => "10-task-write.diag",
-    "11-enrol.cbor" => "11-enrol.diag",
-    "12-suggestion.cbor" => "12-suggestion.diag",
-    "13-event.cbor" => "13-event.diag",
-    "14-notify.cbor" => "14-notify.diag",
-    "15-subscribe.cbor" => "15-subscribe.diag",
-    "16-link-code.cbor" => "16-link-code.diag",
-    "16-link-redeem.cbor" => "16-link-redeem.diag",
-    "17-progress-tail.p2p.cbor" => "17-progress-tail.p2p.diag",
+    "01-hello.json", "02-status-update.json", "04-prompt-sealed.json", "06-ack.json",
+    "07-presence.json", "11-enrol.json", "11-revoke.json", "15-subscribe.json",
+    "17-progress-tail.json", "invalid-nonshortest-int.json", "invalid-unsorted-map.json",
+    "p2p-envelope.json", "person-record.json",
 }
 
+const KAT: &str = include_str!("../../../fixtures/sw-wire-kat.json");
+
 #[test]
-fn every_committed_fixture_passes_the_shared_check() {
-    for (name, bytes, diag) in FIXTURES {
-        sw_testkit::conformance::check(name, bytes, diag).unwrap();
+fn every_contract_fixture_passes_the_shared_check() {
+    let kat = Kat::parse(KAT).unwrap();
+    for (name, json) in FIXTURES {
+        check(name, json, &kat).unwrap();
     }
 }
 
 #[test]
-fn committed_fixtures_are_what_the_generator_produces() {
-    let generated = sw_testkit::fixtures::all();
-    assert_eq!(
-        generated.len(),
-        FIXTURES.len(),
-        "this list must name every fixture"
-    );
-    for ((name, bytes, _), (gen_name, gen_bytes)) in FIXTURES.iter().zip(&generated) {
-        assert_eq!(name, gen_name);
-        assert_eq!(
-            *bytes,
-            gen_bytes.as_slice(),
-            "{name} drifted from the generator"
-        );
-    }
-}
-
-#[test]
-fn a_flipped_byte_in_any_fixture_is_refused() {
-    for (name, bytes, diag) in FIXTURES {
-        for at in [bytes.len() / 3, bytes.len() / 2, bytes.len() - 1] {
-            let mut flipped = bytes.to_vec();
-            flipped[at] ^= 0x01;
+fn a_flipped_cbor_byte_in_any_valid_fixture_is_refused() {
+    let kat = Kat::parse(KAT).unwrap();
+    for (name, json) in FIXTURES.iter().filter(|(n, _)| !n.starts_with("invalid-")) {
+        let start = json.find("\"cbor_hex\": \"").unwrap() + 13;
+        let hex_len = json[start..].find('"').unwrap();
+        for at in [start + 9, start + hex_len / 2, start + hex_len - 1] {
+            let mut flipped = json.to_string().into_bytes();
+            flipped[at] = if flipped[at] == b'0' { b'1' } else { b'0' };
+            let flipped = String::from_utf8(flipped).unwrap();
             assert!(
-                sw_testkit::conformance::check(name, &flipped, diag).is_err(),
-                "{name} accepted a flipped byte at {at}"
+                check(name, &flipped, &kat).is_err(),
+                "{name} accepted a flipped nibble at {at}"
             );
         }
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn every_message_type_has_a_fixture() {
-    let mut typs: Vec<u8> = Vec::new();
-    for (name, _, _) in FIXTURES {
-        typs.push(name[..2].parse().unwrap());
-    }
-    typs.dedup();
-    assert_eq!(typs, (1..=17).collect::<Vec<u8>>());
+fn this_list_names_every_mirrored_fixture() {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/sw-wire");
+    let mut on_disk: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    on_disk.sort();
+    let listed: Vec<&str> = FIXTURES.iter().map(|(n, _)| *n).collect();
+    assert_eq!(
+        on_disk, listed,
+        "a fixture C0 added is missing from this list"
+    );
 }

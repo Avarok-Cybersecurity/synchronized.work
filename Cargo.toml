@@ -38,6 +38,7 @@ aes-gcm = { version = "0.11.1", default-features = false, features = ["aes", "al
 ciborium = { version = "0.2.2", default-features = false, features = ["std"] }
 unicode-normalization = { version = "0.1.25", default-features = false }
 zeroize = { version = "1.8", default-features = false }
+serde_json = { version = "1.0.151", default-features = false, features = ["std"] }
 data-encoding = { version = "2.10", default-features = false, features = ["alloc"] }
 # Exact pins: the wasm test runner (`wasm-bindgen-test-runner`, installed in CI at the same
 # version) refuses a crate built against any other wasm-bindgen.

@@ -80,22 +80,41 @@ pub enum EndpointKind {
 pub struct Endpoint {
     pub cid: Cid,
     pub kind: EndpointKind,
-    /// `SHA-256` of the Endpoint's ML-DSA-65 verifying key.
-    pub signing_kid: [u8; 32],
-    /// `SHA-256` of the ML-KEM-768 encapsulation key; present exactly for Devices.
-    pub sealing_kid: Option<[u8; 32]>,
+    /// The Endpoint's ML-DSA-65 verifying key (1952 bytes).
+    pub sign_pk: Vec<u8>,
+    /// The ML-KEM-768 encapsulation key (1184 bytes); a Device's.
+    pub seal_pk: Option<Vec<u8>>,
+    /// The Person's revocation epoch when this Endpoint was enrolled.
+    pub epoch: u64,
 }
 
-/// The node's record of a Person (design §5.1): the identity key *is* the Person.
+/// Whether a Device runs a paired Controller's prompt at once or asks first (D4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Approval {
+    Manual,
+    Auto,
+}
+
+/// Person policy; every field explicit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PersonPolicy {
+    pub approval: Approval,
+    pub rate_per_min: u32,
+}
+
+/// The node's record of a Person (design §5.1; sw-wire contract §4): the identity key *is*
+/// the Person, and the record is keyed by its `id_fp`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PersonRecord {
     pub id_fp: IdFp,
     /// The ML-DSA-65 identity public key whose fingerprint is `id_fp`.
     pub pk: Vec<u8>,
-    pub handle: String,
+    /// The display handle (`alice@acme.example`).
+    pub display: String,
     pub endpoints: Vec<Endpoint>,
     /// Bumped by every `REVOKE`.
     pub epoch: u64,
+    pub policy: PersonPolicy,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
