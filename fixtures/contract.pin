@@ -1,5 +1,5 @@
 # Mirror of docs/contracts/batch-1116 at this parent revision; SHA3-256 per file.
-parent 4696ba2679140631cc3950f651ddd1eec02dba7a
+parent 3c1b38477d6cb260fc0227ca5de232b757ee5ee9
 a4fdc90ec6936618954a290bcf101af60c15f811f7416cfeabec172ab29d66f7  fixtures/sw-wire/01-hello.json
 2b98164664b7219fd5cb70a0b795475738392b1a07dc8e65dcedeadcfdfbd67f  fixtures/sw-wire/02-status-update.json
 c5541e10b8934af8acd75f172f722567c491c4da1579e44fa26ba8bf9aa26d37  fixtures/sw-wire/04-prompt-sealed.json
@@ -13,5 +13,5 @@ fe9492a32810717486634a7bf2567ea9064a6e3cc5d781d0dc235ba82cf43b0c  fixtures/sw-wi
 989efb9b1671b76a5ec172b05cf1d0bc3440f28d93a029ae5db44ae5d38348d3  fixtures/sw-wire/invalid-unsorted-map.json
 67df17a122ba2b487b518ba03f139720731720905292542ae47fa89413acb876  fixtures/sw-wire/p2p-envelope.json
 a42c336ea87c9f25deaab1c21e5998ae44f7d25a9055a44e8daa188351be9d3b  fixtures/sw-wire/person-record.json
-83b90f7fd95b085a8e7fa6f3e3aa59d9631df6e626955d373450915acd1593b4  sign-in-kat.json
+57facb53a5c5abe396f6d2d1f55d1d307bcad204cf8cba49ce1af432ebb95daf  sign-in-kat.json
 df116e3fe01e55b754dac43b9cacb2c403589168f05c321617917932654ae3d5  sw-wire-kat.json
