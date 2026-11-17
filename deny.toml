@@ -1,12 +1,28 @@
 # cargo-deny: licences are an allowlist (MIT / Apache / BSD family only), sources are
-# crates.io only, and advisories fail the build.
+# crates.io plus the three Avarok repositories the node is built from, and advisories fail
+# the build.
 
 [graph]
 all-features = false
+# The targets this workspace builds for; a dependency only some other target pulls in (the
+# SDK's WASI-only tokio fork) is not part of anything shipped from here.
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "wasm32-unknown-unknown"]
 
 [advisories]
 version = 2
 yanked = "deny"
+# Each one is reached only through the Citadel SDK (pinned by revision); none has a fix this
+# workspace can take without the SDK moving. Each is reported upstream and removed here when
+# the SDK pin moves past it.
+ignore = [
+    # crypto-bigint 0.5 timing variability, via voprf -> elliptic-curve 0.13; the fix (0.7.6)
+    # is semver-incompatible with elliptic-curve 0.13.
+    { id = "RUSTSEC-2026-0387", reason = "SDK's voprf pins elliptic-curve 0.13; needs an SDK bump" },
+    # bincode 1 is unmaintained; the SDK's crypt layer serializes with it.
+    { id = "RUSTSEC-2025-0141", reason = "SDK's citadel_crypt; unmaintained, no vulnerability" },
+    # pin-utils is archived; reached via the SDK's STUN client (webrtc-util -> nix).
+    { id = "RUSTSEC-2026-0441", reason = "SDK's stun -> webrtc-util -> nix; unmaintained only" },
+]
 
 [licenses]
 version = 2
@@ -26,6 +42,46 @@ unused-allowed-license = "allow"
 exceptions = [
     { name = "unicode-normalization", allow = ["Unicode-3.0"] },
     { name = "unicode-ident", allow = ["Unicode-3.0"] },
+    # The node (sw-node, sw-worker) runs the Citadel SDK, whose tree adds these. Each licence
+    # is permissive; each is allowed for the crates below alone.
+    # ICU4X (url -> idna, the SDK's endpoint parsing): Unicode-3.0, the data tables' licence.
+    { name = "icu_collections", allow = ["Unicode-3.0"] },
+    { name = "icu_locale_core", allow = ["Unicode-3.0"] },
+    { name = "icu_normalizer", allow = ["Unicode-3.0"] },
+    { name = "icu_normalizer_data", allow = ["Unicode-3.0"] },
+    { name = "icu_properties", allow = ["Unicode-3.0"] },
+    { name = "icu_properties_data", allow = ["Unicode-3.0"] },
+    { name = "icu_provider", allow = ["Unicode-3.0"] },
+    { name = "litemap", allow = ["Unicode-3.0"] },
+    { name = "potential_utf", allow = ["Unicode-3.0"] },
+    { name = "tinystr", allow = ["Unicode-3.0"] },
+    { name = "writeable", allow = ["Unicode-3.0"] },
+    { name = "yoke", allow = ["Unicode-3.0"] },
+    { name = "yoke-derive", allow = ["Unicode-3.0"] },
+    { name = "zerofrom", allow = ["Unicode-3.0"] },
+    { name = "zerofrom-derive", allow = ["Unicode-3.0"] },
+    { name = "zerotrie", allow = ["Unicode-3.0"] },
+    { name = "zerovec", allow = ["Unicode-3.0"] },
+    { name = "zerovec-derive", allow = ["Unicode-3.0"] },
+    # FN-DSA, the SDK's post-quantum signature option: released into the public domain.
+    { name = "fn-dsa", allow = ["Unlicense"] },
+    { name = "fn-dsa-comm", allow = ["Unlicense"] },
+    { name = "fn-dsa-kgen", allow = ["Unlicense"] },
+    { name = "fn-dsa-sign", allow = ["Unlicense"] },
+    { name = "fn-dsa-vrfy", allow = ["Unlicense"] },
+    # rustls's stack (native TLS for the SDK and its STUN/NAT probes): ISC, MIT-equivalent.
+    { name = "ring", allow = ["ISC"] },
+    { name = "rustls-webpki", allow = ["ISC"] },
+    { name = "untrusted", allow = ["ISC"] },
+    { name = "libloading", allow = ["ISC"] },
+    # Mozilla's root certificates as data.
+    { name = "webpki-root-certs", allow = ["CDLA-Permissive-2.0"] },
+    # hashbrown's default hasher.
+    { name = "foldhash", allow = ["Zlib"] },
+    # The SDK's UPnP client: MPL-2.0, file-level copyleft; used unmodified.
+    { name = "attohttpc", allow = ["MPL-2.0"] },
+    # rustc's archive writer, a build-time dependency of cc.
+    { name = "ar_archive_writer", allow = ["Apache-2.0 WITH LLVM-exception"] },
 ]
 
 [bans]
@@ -37,3 +93,13 @@ allow-wildcard-paths = true
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Pinned by revision in Cargo.toml: the Citadel SDK, citadel-identity, and lattice-db (the
+# storage contract sw-store-do implements). All three are Avarok's own.
+allow-git = [
+    "https://github.com/Avarok-Cybersecurity/Citadel-Protocol",
+    "https://github.com/Avarok-Cybersecurity/citadel-internal-service",
+    "https://github.com/Avarok-Cybersecurity/lattice-db",
+    # The SDK's tokio for WASI targets. It is in Cargo.lock because the SDK names it, and is
+    # never built here: this workspace targets wasm32-unknown-unknown, never WASI.
+    "https://github.com/second-state/wasi_tokio",
+]

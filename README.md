@@ -17,7 +17,11 @@ with declared blockers — from one person's machine to many people. Each Projec
 | `crates/sw-client` | pure | The ports clients are written against: `SessionPort` and `P2pPort`. |
 | `crates/sw-graph` | pure | The framework-free layout core: tidy-tree positions computed once, spring interpolation, a draw-list IR and hit-testing, shared by the web view and the Citadel App canvas. |
 | `crates/sw-testkit` | dev only | Deterministic entropy, the stand-in identity, the fixture cast and the one conformance check. Never a normal dependency (the sbio gate refuses it). |
-| `tools/xtask` | tool | CI gates: `file-length`, `sbio`, `conformance`. |
+| `crates/sw-node` | node | The synchronized.work Citadel server (design §3): a `NetKernel` whose pure core verifies every message through sw-protocol's gate, enrols Endpoints by work.avarok.net's assertion, runs the task tree and the sw-model tier transitions, relays prompts through a bounded inbox and pushes `NOTIFY` for significant events. Refuses to start without full provisioning. |
+| `crates/sw-store-do` | node | lattice-db's `LatticeStorage` over Durable Object storage: one `put` per key, lossless page ids, `sync` on the object's own, checkpoints from the alarm. Passes lattice-db's conformance suite. |
+| `crates/sw-worker` | Worker | The Cloudflare Worker (workers-rs, wasm32-unknown-unknown): routes, `/.well-known/citadel` signed with the node's key, and the `ServerDo` Durable Object that runs the SDK with its accounts in the object's SQL. |
+| `tools/xtask` | tool | CI gates: `file-length`, `sbio`, `conformance`, `plan` (wrangler.toml and deploy.yml), `size` and `node-budget` (against `tools/xtask/budget.toml`). |
+| `tools/sw-bench` | tool | A native Citadel client of the node; `tools/measure.sh` drives it against `wrangler dev` for the node budget. |
 | `fixtures/` | data | The contract's CBOR fixtures, the sw-wire and sign-in known answers, mirrored byte for byte; every party must decode them identically. `contract.pin` records the parent revision and each file's SHA3-256. |
 
 Pure crates do no I/O and draw no randomness of their own; everything builds for

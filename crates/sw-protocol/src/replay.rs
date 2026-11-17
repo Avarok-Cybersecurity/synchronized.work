@@ -42,6 +42,12 @@ impl ReplayGuard {
         self.last_seq.insert(*kid, seq);
     }
 
+    /// Restores the last accepted `seq` for `kid` after a restart. Nonces need no restoring:
+    /// `seq` is strictly increasing per kid, so a replayed message is refused by its `seq`.
+    pub fn restore_seq(&mut self, kid: &Kid, seq: u64) {
+        self.last_seq.insert(*kid, seq);
+    }
+
     /// Drops nonces whose message has expired; an expired message is refused by `exp` anyway.
     pub fn prune(&mut self, now_ms: u64) {
         self.seen.retain(|_, exp| *exp > now_ms);

@@ -1,0 +1,32 @@
+[package]
+name = "sw-worker"
+description = "ADAPTER (workers-rs). The synchronized.work Worker: routing, /.well-known/citadel, and the ServerDO that runs the Citadel node over Durable Object storage."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Everything is wasm32 only: natively this crate is empty, so `cargo test --workspace` never
+# links a Worker.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+sw-node.workspace = true
+sw-store-do.workspace = true
+sw-protocol.workspace = true
+sw-model.workspace = true
+citadel_sdk.workspace = true
+citadel_user.workspace = true
+worker.workspace = true
+js-sys.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["WebSocket"] }
+async-trait.workspace = true
+log.workspace = true
+
+[lints]
+workspace = true
