@@ -2,6 +2,7 @@
 //! issuer, and builders for the envelopes they send. Every key is deterministic.
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
+pub mod identity_kat;
 pub mod rules;
 pub mod vars;
 
@@ -95,19 +96,8 @@ impl World {
     }
 
     pub fn connect(&mut self, cid: Cid) -> Vec<(Cid, Vec<u8>)> {
-        let effects = self.node.connected(cid, NOW);
-        let hello = SwMessage::Unsigned(Payload::Hello(Hello {
-            protocol_version: 1,
-            endpoint_kind: HelloKind::Device,
-            client_build: "test".into(),
-        }));
-        let greeted = self
-            .node
-            .received(cid, &hello.to_bytes().unwrap(), NOW)
-            .unwrap();
-        let mut sent = self.apply(effects);
-        sent.extend(self.apply(greeted));
-        sent
+        let effects = connect(&mut self.node, cid);
+        self.apply(effects)
     }
 
     pub fn send(
@@ -225,6 +215,18 @@ impl World {
         self.bob = bob;
         out
     }
+}
+
+/// Opens session `cid` and sends its `HELLO`; returns what the node did.
+pub fn connect(node: &mut NodeCore, cid: Cid) -> Vec<Effect> {
+    let mut effects = node.connected(cid, NOW);
+    let hello = SwMessage::Unsigned(Payload::Hello(Hello {
+        protocol_version: 1,
+        endpoint_kind: HelloKind::Device,
+        client_build: "test".into(),
+    }));
+    effects.extend(node.received(cid, &hello.to_bytes().unwrap(), NOW).unwrap());
+    effects
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

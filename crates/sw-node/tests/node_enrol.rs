@@ -9,7 +9,7 @@ use support::*;
 use sw_model::EndpointKind::{Controller, Device};
 use sw_node::core::NodeRefusal;
 use sw_protocol::body::Audience;
-use sw_protocol::gate::Refusal;
+use sw_protocol::gate::{AssertionRefusal, Refusal};
 
 #[test]
 fn a_person_arrives_by_assertion_and_is_stored() {
@@ -85,7 +85,12 @@ fn an_assertion_from_any_issuer_but_the_pinned_one_creates_no_person() {
     let forged = w.enrol_payload(&w.alice, &w.alice.controller);
     w.issuer = pinned;
     let refused = w.send_as(Who::Alice, Controller, Audience::Node, forged);
-    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(
+        refused,
+        Err(NodeRefusal::Gate(Refusal::Assertion(
+            AssertionRefusal::Invalid
+        )))
+    );
     assert!(
         w.node
             .directory()
