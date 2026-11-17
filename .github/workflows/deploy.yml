@@ -17,8 +17,11 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # wrangler's anonymous usage metrics are a call to Cloudflare; CI makes none it does not need.
+  WRANGLER_SEND_METRICS: false
   RUSTFLAGS: -D warnings
   WORKER_BUILD_VERSION: 0.8.7
+  WASM_BINDGEN_VERSION: 0.2.129
 
 jobs:
   deploy:
@@ -33,6 +36,11 @@ jobs:
       - run: cargo install --locked worker-build --version "$WORKER_BUILD_VERSION"
       - name: Plan gate (Paid features, deploy on main only)
         run: cargo run --locked -p xtask -- plan
+      - run: cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION"
+      - name: Build the site (the Worker's [assets])
+        run: npm ci --prefix site && npm run build --prefix site
+      - name: Site size gate
+        run: cargo run --locked -p xtask -- site-size site/dist
       - name: Build the bundle
         # getrandom's browser backend for the wasm build only (see ci.yml's worker job).
         env:

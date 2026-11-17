@@ -1,0 +1,31 @@
+[package]
+name = "sw-view-wasm"
+description = "ADAPTER (wasm-bindgen). The site's Rust core behind the React Flow view: folds a Project with sw-client, lays it out once with sw-graph, builds the demo from the contract fixtures, and starts Sign in with Citadel. React only draws what this returns."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sw-client.workspace = true
+sw-graph.workspace = true
+sw-model.workspace = true
+sw-protocol.workspace = true
+ciborium.workspace = true
+data-encoding.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+
+[lints]
+workspace = true

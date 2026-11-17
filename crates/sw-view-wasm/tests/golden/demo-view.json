@@ -1,0 +1,173 @@
+{
+  "demo": true,
+  "nodes": [
+    {
+      "id": "project",
+      "parent": null,
+      "kind": "project",
+      "label": "Demo project",
+      "detail": "3 tasks",
+      "state": null,
+      "x": 548.0,
+      "y": 0.0,
+      "w": 220.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-42",
+      "parent": "project",
+      "kind": "task",
+      "label": "Ship the synchronized.work site",
+      "detail": "open",
+      "state": "synchronized",
+      "x": 324.0,
+      "y": 120.0,
+      "w": 220.0,
+      "h": 72.0
+    },
+    {
+      "id": "task:task-42/person:3foriftckvpoy2rh",
+      "parent": "task:task-42",
+      "kind": "person",
+      "label": "macbook-pro",
+      "detail": "owner",
+      "state": null,
+      "x": 100.0,
+      "y": 240.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-42/person:3foriftckvpoy2rh/agent:agent-7",
+      "parent": "task:task-42/person:3foriftckvpoy2rh",
+      "kind": "agent",
+      "label": "agent-7",
+      "detail": "claude-code, online",
+      "state": null,
+      "x": 100.0,
+      "y": 360.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-42/person:3foriftckvpoy2rh/agent:agent-7/progress",
+      "parent": "task:task-42/person:3foriftckvpoy2rh/agent:agent-7",
+      "kind": "progress",
+      "label": "Landing renders at 390 px; 14 checks green",
+      "detail": "0 blockers",
+      "state": "running",
+      "x": 100.0,
+      "y": 480.0,
+      "w": 200.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-42/person:nx4lsn6nz54fudy7",
+      "parent": "task:task-42",
+      "kind": "person",
+      "label": "workstation",
+      "detail": "co-worker",
+      "state": null,
+      "x": 324.0,
+      "y": 240.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-42/person:nx4lsn6nz54fudy7/agent:agent-8",
+      "parent": "task:task-42/person:nx4lsn6nz54fudy7",
+      "kind": "agent",
+      "label": "agent-8",
+      "detail": "claude-code, online",
+      "state": null,
+      "x": 324.0,
+      "y": 360.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-42/person:nx4lsn6nz54fudy7/agent:agent-8/progress",
+      "parent": "task:task-42/person:nx4lsn6nz54fudy7/agent:agent-8",
+      "kind": "progress",
+      "label": "No progress yet",
+      "detail": "1 blockers",
+      "state": "waiting",
+      "x": 324.0,
+      "y": 480.0,
+      "w": 200.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-44",
+      "parent": "task:task-42",
+      "kind": "task",
+      "label": "Write the MCP install guide",
+      "detail": "open",
+      "state": "off",
+      "x": 548.0,
+      "y": 240.0,
+      "w": 220.0,
+      "h": 72.0
+    },
+    {
+      "id": "task:task-44/person:3foriftckvpoy2rh",
+      "parent": "task:task-44",
+      "kind": "person",
+      "label": "macbook-pro",
+      "detail": "owner",
+      "state": null,
+      "x": 548.0,
+      "y": 360.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-43",
+      "parent": "project",
+      "kind": "task",
+      "label": "Sign in with Citadel",
+      "detail": "open",
+      "state": "aware",
+      "x": 772.0,
+      "y": 120.0,
+      "w": 220.0,
+      "h": 72.0
+    },
+    {
+      "id": "task:task-43/person:nx4lsn6nz54fudy7",
+      "parent": "task:task-43",
+      "kind": "person",
+      "label": "workstation",
+      "detail": "owner",
+      "state": null,
+      "x": 772.0,
+      "y": 240.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-43/person:nx4lsn6nz54fudy7/agent:agent-9",
+      "parent": "task:task-43/person:nx4lsn6nz54fudy7",
+      "kind": "agent",
+      "label": "agent-9",
+      "detail": "claude-code, online",
+      "state": null,
+      "x": 772.0,
+      "y": 360.0,
+      "w": 180.0,
+      "h": 64.0
+    },
+    {
+      "id": "task:task-43/person:nx4lsn6nz54fudy7/agent:agent-9/progress",
+      "parent": "task:task-43/person:nx4lsn6nz54fudy7/agent:agent-9",
+      "kind": "progress",
+      "label": "Waiting for a decision on the return URL",
+      "detail": "1 blockers",
+      "state": "blocked",
+      "x": 772.0,
+      "y": 480.0,
+      "w": 200.0,
+      "h": 64.0
+    }
+  ]
+}

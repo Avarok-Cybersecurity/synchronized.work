@@ -27,8 +27,9 @@ fn main() -> ExitCode {
         Some("conformance") => conformance::run(&root, &args[1..]),
         Some("plan") => plan::run(&root),
         Some("size") => size::run(&root, &args[1..]),
+        Some("site-size") => size::site(&root, &args[1..]),
         Some("node-budget") => node_budget::run(&root, &args[1..]),
-        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>] | plan | size <dir> | node-budget <measure.json>>".to_owned()),
+        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>] | plan | size <dir> | site-size <dir> | node-budget <measure.json>>".to_owned()),
     };
     match result {
         Ok(verdict) => {

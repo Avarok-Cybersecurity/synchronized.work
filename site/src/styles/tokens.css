@@ -1,0 +1,35 @@
+/* Theme tokens. Every colour is light-dark(light, dark); `color-scheme` picks the half: the
+   system's by default, or the person's choice through [data-theme]. The --bg-* tokens are
+   registered as <color> so the background canvas reads them resolved. */
+@property --bg-ink { syntax: '<color>'; inherits: true; initial-value: #17132a; }
+@property --bg-primary { syntax: '<color>'; inherits: true; initial-value: #5b3fa6; }
+@property --bg-secondary { syntax: '<color>'; inherits: true; initial-value: #76b900; }
+
+:root {
+  color-scheme: light dark;
+  /* Avarok purple (the UI's --primary, hsl(257 45% 45%)) and NVIDIA green (#76B900). */
+  --primary: light-dark(hsl(257 45% 45%), hsl(257 75% 78%));
+  --primary-strong: light-dark(hsl(257 50% 36%), hsl(257 85% 86%));
+  --on-primary: light-dark(#ffffff, #120e22);
+  --primary-soft: light-dark(hsl(257 45% 45% / 0.1), hsl(257 75% 78% / 0.14));
+  --green: #76b900;
+  /* Green as text: darkened on light pages so it keeps 4.5:1. */
+  --green-text: light-dark(#3a6100, #8fd400);
+  --page: light-dark(#f7f6fb, #0f0c1a);
+  --surface: light-dark(rgb(255 255 255 / 0.94), rgb(26 22 46 / 0.92));
+  --surface-solid: light-dark(#ffffff, #1a162e);
+  --line: light-dark(#e1dcef, #322b4f);
+  --ink: light-dark(#17132a, #f2effa);
+  --body: light-dark(#37314d, #d6d1e8);
+  --muted: light-dark(#575170, #aca5c7);
+  --danger: light-dark(#a3182f, #ff9aa8);
+  --bg-ink: light-dark(#17132a, #e6e1f7);
+  --bg-primary: light-dark(hsl(257 45% 45%), hsl(257 70% 72%));
+  --bg-secondary: var(--green);
+  --radius: 14px;
+  --shadow: 0 1px 2px rgb(23 19 42 / 0.06), 0 12px 32px -16px rgb(23 19 42 / 0.25);
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }

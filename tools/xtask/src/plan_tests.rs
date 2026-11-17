@@ -104,3 +104,35 @@ fn a_deploy_on_pull_requests_or_off_main_fails() {
             .any(|p| p.contains("push to main"))
     );
 }
+
+#[test]
+fn the_shipped_assets_section_passes() {
+    assert_eq!(check_assets(&wrangler()), Vec::<String>::new());
+}
+
+#[test]
+fn a_wrangler_toml_without_assets_fails() {
+    let problems = check_assets(&edited("[assets]", "[not_assets]"));
+    assert_eq!(problems, ["no [assets]: the site is not served"]);
+}
+
+#[test]
+fn assets_that_bypass_the_worker_fail() {
+    let problems = check_assets(&edited(
+        "run_worker_first = true",
+        "run_worker_first = false",
+    ));
+    assert!(
+        problems.iter().any(|p| p.contains("run_worker_first")),
+        "{problems:?}"
+    );
+}
+
+#[test]
+fn assets_from_another_directory_fail() {
+    let problems = check_assets(&edited("directory = \"site/dist\"", "directory = \"dist\""));
+    assert!(
+        problems.iter().any(|p| p.contains("directory")),
+        "{problems:?}"
+    );
+}

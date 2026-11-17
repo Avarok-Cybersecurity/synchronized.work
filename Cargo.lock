@@ -3983,7 +3983,12 @@ dependencies = [
 name = "sw-client"
 version = "0.1.0"
 dependencies = [
+ "ciborium",
+ "data-encoding",
+ "serde_json",
+ "sw-crypto",
  "sw-model",
+ "sw-protocol",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]
@@ -4084,6 +4089,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sw-view-wasm"
+version = "0.1.0"
+dependencies = [
+ "ciborium",
+ "data-encoding",
+ "serde",
+ "serde_json",
+ "sw-client",
+ "sw-graph",
+ "sw-model",
+ "sw-protocol",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "sw-worker"
 version = "0.1.0"
 dependencies = [
@@ -4092,6 +4113,7 @@ dependencies = [
  "citadel_user",
  "js-sys",
  "log",
+ "serde_json",
  "sw-model",
  "sw-node",
  "sw-protocol",
