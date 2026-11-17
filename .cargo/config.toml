@@ -1,2 +1,5 @@
+# getrandom 0.3 draws entropy from `crypto.getRandomValues` only when told to; a Worker provides
+# it. Only the Citadel SDK (sw-node, sw-worker) reaches getrandom: the pure crates never do (sbio).
 [target.wasm32-unknown-unknown]
 runner = "wasm-bindgen-test-runner"
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

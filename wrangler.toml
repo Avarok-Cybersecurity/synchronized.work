@@ -1,0 +1,67 @@
+# synchronized.work: one Worker and its one ServerDO (design rev 3 §3), on the Workers Paid
+# plan (D11). `tools/xtask plan` checks this file: the Paid features the design relies on
+# (`limits.cpu_ms`, SQLite-backed Durable Objects) must be declared and the ones it forbids
+# (queues, logpush, KV-backed object classes) must not be.
+#
+# Deployed only by .github/workflows/deploy.yml on a push to main; never from a PR.
+name = "synchronized-work"
+main = "crates/sw-worker/build/worker/shim.mjs"
+compatibility_date = "2026-09-01"
+workers_dev = false
+preview_urls = false
+
+routes = [
+  { pattern = "synchronized.work/*", zone_name = "synchronized.work" },
+]
+
+# workers-rs: cargo + wasm-bindgen + the generated JS shim, at the version Cargo.lock pins.
+[build]
+command = "cd crates/sw-worker && worker-build --release"
+
+# CPU per event, in ms. A sign-in on the node is server-side OPRF + ML-KEM + the isolate's
+# Argon2 cost for legacy accounts; the measured figures and their headroom are in
+# tools/xtask/budget.toml, which the node-budget gate compares against.
+[limits]
+cpu_ms = 30000
+
+[[durable_objects.bindings]]
+name = "SERVER"
+class_name = "ServerDo"
+
+# Append-only: a deployed tag is never edited or removed. SQLite-backed, because lattice-db's
+# storage contract needs per-value sizes a KV-backed object does not allow, and the SDK's
+# accounts live in the object's SQL tables.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ServerDo"]
+
+# Provisioning (sw-node `provision`): every value is required and none has a default in code.
+# Secrets, set by the operator with `wrangler secret put`, never here:
+#   SW_SERVER_KEY_SEED       32 bytes as 64 hex, from the OS CSPRNG: the node's identity key
+#   SW_OPRF_SEED             32 bytes as 64 hex: post-quantum sign-in's OPRF seed
+#   SW_SERVER_KEY_ISSUED_AT  Unix seconds the key was issued (changed only with the key)
+#   SW_SIGN_IN_ISSUER_PK     work.avarok.net's pinned server key (base64url ML-DSA-65), read
+#                            from its /.well-known/citadel once it is served
+# Until all four are set the node refuses to start: every upgrade is answered 503.
+[vars]
+SW_FORMER_DOMAINS = "-"
+SW_CITADEL_WSS = "wss://synchronized.work/citadel"
+# Server-side Argon2 for legacy accounts, sized for a 128 MB isolate metered per event.
+ARGON_LANES = "1"
+ARGON_MEM_KIB = "4096"
+ARGON_TIME_COST = "1"
+# The Argon2id cost clients stretch a PQ password factor with: the SDK's floor (OWASP).
+PQ_KSF_MEM_KIB = "19456"
+PQ_KSF_ITERATIONS = "2"
+PQ_KSF_LANES = "1"
+STUN_SERVERS = "stun.cloudflare.com:3478,stun1.l.google.com:19302,stun4.l.google.com:19302"
+SW_PATH_POLICY = '{"rules":[{"kind":"Direct","enabled":true,"attempt_timeout":{"secs":10,"nanos":0},"cost_weight":1,"classes":15},{"kind":"PeerRelay","enabled":true,"attempt_timeout":{"secs":10,"nanos":0},"cost_weight":2,"classes":15},{"kind":"Turn","enabled":true,"attempt_timeout":{"secs":10,"nanos":0},"cost_weight":3,"classes":15},{"kind":"ServerRelay","enabled":true,"attempt_timeout":{"secs":10,"nanos":0},"cost_weight":4,"classes":15}],"denied":0}'
+# D4: a Person the node first meets approves prompts by hand, 10 signals a minute.
+SW_PERSON_APPROVAL = "manual"
+SW_PERSON_RATE_PER_MIN = "10"
+# Design §2.6 and §4.5 caps, each a refusal.
+SW_INBOX_MAX_SIGNALS = "1000"
+SW_INBOX_MAX_BYTES = "4194304"
+SW_MAX_PERSONS = "200"
+SW_MAX_TASKS = "5000"
+LOG_LEVEL = "warn"
