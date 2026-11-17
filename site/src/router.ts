@@ -1,5 +1,5 @@
 // Path routing over the History API. The Worker serves the app shell for every unknown path
-// (`not_found_handling = "single-page-application"`), so deep links load directly.
+// that does not name a file (crates/sw-worker/src/fallback.rs), so deep links load directly.
 import { useEffect, useState } from 'react';
 
 export type Route = { page: 'landing' } | { page: 'demo' } | { page: 'auth-return' } | { page: 'not-found' };

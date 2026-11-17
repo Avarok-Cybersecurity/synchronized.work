@@ -5,9 +5,11 @@
 //! - `/citadel` — a WebSocket upgrade, forwarded to the ServerDO, which runs the Citadel node.
 //!
 //! - `POST /auth/return` — where a browser sign-in returns (sign-in contract §5);
-//! - everything else — the site's static assets, with the security headers of `security`.
+//! - everything else — the site's static assets, with the security headers of `security`;
+//!   a miss gets the app shell, or 404 when the path names a file (`fallback`).
 //!
-//! There is no HTTP API: every client is a Citadel client. Natively the crate is empty.
+//! There is no HTTP API: every client is a Citadel client. Natively the crate holds only the
+//! pure `fallback` rules.
 
 #[cfg(target_arch = "wasm32")]
 mod clock;
@@ -15,6 +17,7 @@ mod clock;
 mod console;
 #[cfg(target_arch = "wasm32")]
 mod env_source;
+pub mod fallback;
 #[cfg(target_arch = "wasm32")]
 mod node_store;
 #[cfg(target_arch = "wasm32")]

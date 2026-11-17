@@ -3,6 +3,7 @@
 use worker::{Context, Env, Method, Request, Response, Result, event};
 
 use crate::env_source::EnvSource;
+use crate::fallback::{self, Miss};
 use crate::security::HEADERS;
 
 /// The one ServerDO (design §3.2 Q1): `idFromName("node")`.
@@ -18,7 +19,8 @@ pub const AUTH_RETURN: &str = "/auth/return";
 #[event(fetch)]
 async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     crate::console::init(&env);
-    let response = match (req.method(), req.path().as_str()) {
+    let path = req.path();
+    let response = match (req.method(), path.as_str()) {
         (_, "/citadel") => {
             let stub = env
                 .durable_object(SERVER_BINDING)?
@@ -29,16 +31,33 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         (_, "/healthz") => healthz(&env)?,
         (_, "/.well-known/citadel") => well_known(&env)?,
         (Method::Post, AUTH_RETURN) => auth_return()?,
-        _ => env.assets(ASSETS_BINDING)?.fetch_request(req).await?,
+        _ => asset(req, &env).await?,
     };
-    secured(response)
+    secured(response, &path)
+}
+
+/// The site's file at this path; on a miss, the shell for an app route and the binding's 404
+/// for a path that names a file (`fallback::on_miss`).
+async fn asset(req: Request, env: &Env) -> Result<Response> {
+    let assets = env.assets(ASSETS_BINDING)?;
+    let mut url = req.url()?;
+    let response = assets.fetch_request(req).await?;
+    if response.status_code() != 404 || fallback::on_miss(url.path()) == Miss::NotFound {
+        return Ok(response);
+    }
+    url.set_path(fallback::SHELL_PATH);
+    url.set_query(None);
+    assets.fetch(url.to_string(), None).await
 }
 
 /// The asset response's headers are immutable; a copy carries the security headers.
-fn secured(response: Response) -> Result<Response> {
+fn secured(response: Response, path: &str) -> Result<Response> {
     let headers = response.headers().clone();
     for (name, value) in HEADERS {
         headers.set(name, value)?;
+    }
+    if let Some(value) = fallback::cache_control(path) {
+        headers.set("cache-control", value)?;
     }
     Ok(response.with_headers(headers))
 }
