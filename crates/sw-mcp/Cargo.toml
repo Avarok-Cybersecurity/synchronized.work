@@ -1,0 +1,44 @@
+[package]
+name = "sw-mcp"
+description = "ADAPTER. The synchronized.work MCP: a native Citadel Device client of the sw node (daemon), the MCP stdio server for coding agents (serve), the Claude Code hook, the local verification gate, and the trusted-controller allowlist (trust, revoke)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+# Git dependencies (the pinned SDK and identity crate): a binary for machines, not a crates.io
+# library.
+publish = false
+
+[[bin]]
+name = "sw-mcp"
+path = "src/main.rs"
+
+[dependencies]
+sw-model.workspace = true
+sw-protocol.workspace = true
+sw-crypto.workspace = true
+sw-client.workspace = true
+ciborium.workspace = true
+data-encoding.workspace = true
+serde_json.workspace = true
+citadel_sdk.workspace = true
+citadel_user.workspace = true
+citadel-identity.workspace = true
+tokio.workspace = true
+rmcp.workspace = true
+schemars.workspace = true
+serde.workspace = true
+toml.workspace = true
+clap.workspace = true
+reqwest.workspace = true
+getrandom.workspace = true
+futures.workspace = true
+zeroize.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+sw-testkit.workspace = true
+
+[lints]
+workspace = true

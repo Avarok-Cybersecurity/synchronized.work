@@ -1,5 +1,5 @@
-# cargo-deny: licences are an allowlist (MIT / Apache / BSD family only), sources are
-# crates.io only, and advisories fail the build.
+# cargo-deny: licences are an allowlist (permissive only), sources are crates.io plus the
+# pinned Citadel git repositories, and advisories fail the build.
 
 [graph]
 all-features = false
@@ -7,6 +7,21 @@ all-features = false
 [advisories]
 version = 2
 yanked = "deny"
+# Each ignore names why it cannot reach a shipped path, and is revisited when the pin moves.
+ignore = [
+    # rmcp's Streamable HTTP server and client transports. sw-mcp builds rmcp 0.16 (design §9,
+    # as lattice-mcp) with `server` + `transport-io` only: stdio, never HTTP, never a socket.
+    { id = "RUSTSEC-2026-0189", reason = "HTTP server transport not compiled (stdio only)" },
+    { id = "RUSTSEC-2026-0462", reason = "HTTP client transport not compiled (stdio only)" },
+    # Inside the pinned Citadel SDK (rev 38fd3ddb), not this repository's code: crypto-bigint via
+    # voprf in citadel_user, and four unmaintained crates of the SDK's tree. Fixing them is an
+    # SDK change, outside this workspace (master plan §2: the SDK lane is "nothing").
+    { id = "RUSTSEC-2026-0387", reason = "crypto-bigint timing, inside the pinned SDK (voprf)" },
+    { id = "RUSTSEC-2023-0089", reason = "atomic-polyfill unmaintained, inside the pinned SDK" },
+    { id = "RUSTSEC-2025-0141", reason = "bincode 1 unmaintained, inside the pinned SDK" },
+    { id = "RUSTSEC-2026-0441", reason = "pin-utils unmaintained, inside the pinned SDK" },
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained, a build-time macro dependency" },
+]
 
 [licenses]
 version = 2
@@ -16,16 +31,27 @@ allow = [
     "Apache-2.0",
     "BSD-2-Clause",
     "BSD-3-Clause",
+    # Permissive licences of sw-mcp's native tree (the Citadel SDK, rustls/ring and reqwest's URL
+    # stack): ISC (ring, rustls-webpki, untrusted, libloading), Zlib (foldhash),
+    # CDLA-Permissive-2.0 (the Mozilla root list in webpki-roots) and Unicode-3.0 (the ICU data
+    # crates under `url`/`idna`, as well as the two crates the exceptions below used to name).
+    "ISC",
+    "Zlib",
+    "CDLA-Permissive-2.0",
+    "Unicode-3.0",
 ]
 # The allowlist names the BSD family even before a BSD crate appears.
 unused-allowed-license = "allow"
-# Two crates are "(MIT OR Apache-2.0) AND Unicode-3.0" because they embed the Unicode
-# Character Database tables: unicode-normalization (NFKC for the task embedding, design
-# §2.3) and unicode-ident (a build-time proc-macro dependency of serde_derive). Unicode-3.0
-# is allowed for those two crates alone, never globally.
+# Crate by crate, never globally: fn-dsa (FN-DSA, the SDK's second PQ signature) is
+# Unlicense (public-domain dedication); attohttpc (the SDK's UPnP client, via igd) is MPL-2.0,
+# file-level copyleft that a dependency does not extend to this code.
 exceptions = [
-    { name = "unicode-normalization", allow = ["Unicode-3.0"] },
-    { name = "unicode-ident", allow = ["Unicode-3.0"] },
+    { name = "fn-dsa", allow = ["Unlicense"] },
+    { name = "fn-dsa-comm", allow = ["Unlicense"] },
+    { name = "fn-dsa-kgen", allow = ["Unlicense"] },
+    { name = "fn-dsa-sign", allow = ["Unlicense"] },
+    { name = "fn-dsa-vrfy", allow = ["Unlicense"] },
+    { name = "attohttpc", allow = ["MPL-2.0"] },
 ]
 
 [bans]
@@ -37,3 +63,10 @@ allow-wildcard-paths = true
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# sw-mcp's pinned Citadel SDK and identity crate (design §10), and the WASI tokio fork the SDK's
+# workspace names.
+allow-git = [
+    "https://github.com/Avarok-Cybersecurity/Citadel-Protocol",
+    "https://github.com/Avarok-Cybersecurity/citadel-internal-service",
+    "https://github.com/second-state/wasi_tokio.git",
+]
