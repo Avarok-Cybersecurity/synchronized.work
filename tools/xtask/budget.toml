@@ -1,0 +1,38 @@
+# What the node may cost (design §11.1), and what it measured. The gates read the ceilings;
+# the `measured` tables are the record the ceilings were set against.
+
+# `xtask size <dir>`: the gzip of every file wrangler uploads (`wrangler deploy --dry-run
+# --outdir <dir>`). The Paid plan's limit is 10 MiB compressed; the ceiling is kept near the
+# measured bundle so a large accidental dependency fails here, not at deploy time.
+[bundle]
+max_gzip_bytes = 2_621_440
+
+[bundle.measured]
+# 2026-11-16, worker-build 0.8.7 --release, wasm-opt on. wrangler reported 5236 KiB raw,
+# 1460 KiB gzip.
+gzip_bytes = 1_478_590
+raw_bytes = 5_361_796
+
+# `xtask node-budget <measure.json>`, the output of tools/measure.sh: per-event CPU and the
+# node's wasm memory at `sessions` live sessions. Every CPU ceiling must sit below
+# wrangler.toml's limits.cpu_ms (the plan gate checks it).
+[node]
+sessions = 50
+max_cpu_ms_per_register = 100.0
+max_cpu_ms_per_sign_in = 100.0
+max_cpu_ms_per_enrol = 50.0
+max_cpu_ms_per_message = 10.0
+# A Durable Object isolate has 128 MB; the node is held to half of it at 50 sessions.
+max_wasm_memory_bytes = 67_108_864
+
+[node.measured]
+# 2026-11-16, `tools/measure.sh 50 100`: wrangler 4.136.3 dev --local (workerd) on an Apple
+# M-series Mac, native sw-bench clients over ws://127.0.0.1. workerd's CPU is summed from
+# `ps`, so the figures include the runtime's own work; Cloudflare's metered CPU is unproven
+# until a deployed run is measured.
+cpu_ms_per_register = 13.4
+cpu_ms_per_sign_in = 18.4
+cpu_ms_per_enrol = 11.8
+cpu_ms_per_message = 1.39
+wasm_memory_bytes = 17_563_648
+workerd_rss_kib = 460_960
