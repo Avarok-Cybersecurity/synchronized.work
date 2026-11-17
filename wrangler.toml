@@ -10,8 +10,11 @@ compatibility_date = "2026-09-01"
 workers_dev = false
 preview_urls = false
 
+# A custom domain, not a zone route: a zone route only matches traffic that already reaches
+# Cloudflare, and the apex had no DNS record, so the first deploy answered nothing. A custom
+# domain makes Cloudflare create and own the apex's DNS record and certificate.
 routes = [
-  { pattern = "synchronized.work/*", zone_name = "synchronized.work" },
+  { pattern = "synchronized.work", custom_domain = true },
 ]
 
 # workers-rs: cargo + wasm-bindgen + the generated JS shim, at the version Cargo.lock pins.
