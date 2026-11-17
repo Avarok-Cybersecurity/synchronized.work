@@ -38,6 +38,9 @@ jobs:
         run: cargo run --locked -p xtask -- plan
       - run: cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION"
       - name: Build the site (the Worker's [assets])
+        env:
+          # Versions the service worker's cache, so this deploy replaces the old one.
+          SITE_BUILD_SHA: ${{ github.sha }}
         run: npm ci --prefix site && npm run build --prefix site
       - name: Site size gate
         run: cargo run --locked -p xtask -- site-size site/dist

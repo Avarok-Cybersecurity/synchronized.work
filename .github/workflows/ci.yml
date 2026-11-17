@@ -81,8 +81,16 @@ jobs:
       - run: cargo install --locked worker-build --version "$WORKER_BUILD_VERSION"
       - run: cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION"
       # The site (lane S3) is the Worker's [assets]: it must exist before the dry run.
+      - run: npm ci --prefix site
+      # The icons, favicon.ico, og-image and manifest are derived from site/public/logo.svg and
+      # site/brand/brand.json; a hand edit, or an input edited without regenerating, fails here.
+      - name: brand (the derived identity files match what site/scripts/brand.mjs writes)
+        run: npm run brand:check --prefix site
       - name: Build the site (wasm view core, typecheck, vite)
-        run: npm ci --prefix site && npm run build --prefix site
+        env:
+          # Versions the service worker's cache (site/vite/service-worker.mjs).
+          SITE_BUILD_SHA: ${{ github.sha }}
+        run: npm run build --prefix site
       - name: site-size (the built site's gzip is within budget.toml)
         run: cargo run --locked -p xtask -- site-size site/dist
       - name: wrangler deploy --dry-run (builds the bundle; uploads nothing, no credentials)
