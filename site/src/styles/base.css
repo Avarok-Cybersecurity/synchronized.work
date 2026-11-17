@@ -1,0 +1,59 @@
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; font: 16px/1.6 var(--font); color: var(--body); background: var(--page);
+  overflow-x: hidden; display: flex; flex-direction: column;
+}
+main { flex: 1; outline: none; overflow-x: clip; }
+h1, h2, h3 { color: var(--ink); line-height: 1.2; margin: 0 0 12px; letter-spacing: -0.02em; }
+h1 { font-size: clamp(2rem, 6vw, 3.3rem); }
+h2 { font-size: clamp(1.6rem, 4vw, 2.3rem); }
+h3 { font-size: 1.1rem; }
+p { margin: 0 0 12px; }
+a { color: var(--primary); text-underline-offset: 3px; }
+a:hover { color: var(--primary-strong); }
+code, pre { font-family: var(--mono); font-size: 0.9em; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 16px; top: -64px; z-index: 50; padding: 12px 16px; border-radius: 8px; background: var(--primary); color: var(--on-primary); }
+.skip:focus { top: 12px; }
+.wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+.wrap-wide { width: min(1440px, 100% - 32px); margin-inline: auto; }
+.page-pad { padding: 48px 0; }
+.narrow { max-width: 680px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; min-width: 0; }
+.error { color: var(--danger); }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px;
+  border-radius: 12px; border: 2px solid var(--primary); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer;
+}
+.btn-primary { background: var(--primary); color: var(--on-primary); }
+.btn-primary:hover { background: var(--primary-strong); border-color: var(--primary-strong); color: var(--on-primary); }
+.btn-primary:disabled { opacity: 0.6; cursor: progress; }
+.btn-ghost { background: transparent; color: var(--primary); }
+.btn-ghost:hover { background: var(--primary-soft); }
+.icon-btn {
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-solid);
+  color: var(--ink); font-size: 20px; cursor: pointer; flex: none;
+}
+.site-header { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--page) 92%, transparent); border-bottom: 1px solid var(--line); }
+.header-inner { display: flex; align-items: center; gap: 12px; min-height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 800; color: var(--ink); text-decoration: none; margin-right: auto; }
+.brand img { flex: none; }
+.nav-links { display: flex; gap: 2px; list-style: none; margin: 0; padding: 0; }
+.nav-links a { display: flex; align-items: center; min-height: 44px; padding: 0 10px; border-radius: 8px; color: var(--body); font-weight: 600; text-decoration: none; }
+.nav-links a:hover { background: var(--primary-soft); color: var(--primary); }
+@media (max-width: 520px) {
+  .brand span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .nav-links a { padding: 0 8px; font-size: 0.92rem; }
+}
+.site-footer { border-top: 1px solid var(--line); padding: 32px 0; background: color-mix(in srgb, var(--page) 85%, transparent); }
+.footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+.footer-inner p { margin: 0; color: var(--muted); }
+.footer-links { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: 0; padding: 0; }
+.footer-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

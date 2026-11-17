@@ -1,8 +1,11 @@
 //! The synchronized.work Worker (design §3.1): stateless routing in front of one ServerDO.
 //!
-//! - `GET /healthz` — the deployed commit;
+//! - `GET /healthz` — the deployed commit and whether the node is provisioned;
 //! - `GET /.well-known/citadel` — the node's signed identity document;
 //! - `/citadel` — a WebSocket upgrade, forwarded to the ServerDO, which runs the Citadel node.
+//!
+//! - `POST /auth/return` — where a browser sign-in returns (sign-in contract §5);
+//! - everything else — the site's static assets, with the security headers of `security`.
 //!
 //! There is no HTTP API: every client is a Citadel client. Natively the crate is empty.
 
@@ -16,6 +19,8 @@ mod env_source;
 mod node_store;
 #[cfg(target_arch = "wasm32")]
 mod routes;
+#[cfg(target_arch = "wasm32")]
+mod security;
 #[cfg(target_arch = "wasm32")]
 mod server_do;
 #[cfg(target_arch = "wasm32")]

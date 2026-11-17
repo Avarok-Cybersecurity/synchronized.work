@@ -27,6 +27,7 @@ wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = ["WebSocket"] }
 async-trait.workspace = true
 log.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

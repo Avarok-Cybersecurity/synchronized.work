@@ -18,6 +18,15 @@ routes = [
 [build]
 command = "cd crates/sw-worker && worker-build --release"
 
+# The site (lane S3): `site/` built by `npm run build` into site/dist. Every request runs the
+# Worker first, so pages and assets carry the Worker's security headers (CSP and the rest,
+# crates/sw-worker/src/security.rs); unknown paths get the app shell, which routes itself.
+[assets]
+directory = "site/dist"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "single-page-application"
+
 # CPU per event, in ms. A sign-in on the node is server-side OPRF + ML-KEM + the isolate's
 # Argon2 cost for legacy accounts; the measured figures and their headroom are in
 # tools/xtask/budget.toml, which the node-budget gate compares against.

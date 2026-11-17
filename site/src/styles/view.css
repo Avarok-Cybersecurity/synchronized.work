@@ -1,0 +1,45 @@
+.project { padding: 24px 0 48px; }
+.demo-banner {
+  margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; border: 2px dashed var(--green);
+  background: color-mix(in srgb, var(--green) 10%, var(--surface-solid)); color: var(--ink);
+}
+.project-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; }
+.flow-frame { height: 70vh; min-height: 420px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-solid); overflow: hidden; }
+.project-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.project-side > h2 { font-size: 1.2rem; margin: 0; }
+@media (max-width: 900px) { .project-grid { grid-template-columns: minmax(0, 1fr); } .flow-frame { height: 60vh; min-height: 360px; } }
+.react-flow {
+  --xy-background-color: var(--surface-solid); --xy-edge-stroke: var(--muted); --xy-edge-stroke-width: 1.5;
+  --xy-controls-button-background-color: var(--surface-solid); --xy-controls-button-color: var(--ink);
+  --xy-controls-button-border-color: var(--line); --xy-controls-button-background-color-hover: var(--primary-soft);
+  --xy-attribution-background-color: var(--surface-solid);
+}
+.react-flow__controls-button { width: 44px; height: 44px; }
+.react-flow__attribution a { color: var(--muted); }
+.react-flow__node-sw { padding: 0; border: none; background: none; }
+.node-card {
+  width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 12px;
+  border-radius: 12px; border: 2px solid var(--line); background: var(--surface-solid); color: var(--ink); overflow: hidden;
+}
+.node-card > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node-kind { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.node-label { font-weight: 700; font-size: 14px; }
+.node-detail { font-size: 12px; color: var(--muted); }
+.node-state { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; font-family: var(--mono); font-size: 11px; background: var(--primary-soft); color: var(--primary); }
+.kind-project.node-card { border-color: var(--primary); }
+.kind-person.node-card, .kind-agent.node-card { border-radius: 999px; padding: 6px 20px; }
+.state-off.node-card { border-style: dashed; }
+.state-aware.node-card { border-color: var(--primary); }
+.state-synchronized.node-card { border: 4px double var(--green); }
+.state-blocked .node-state, .state-stalled .node-state { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.node-card.is-selected { outline: 3px solid var(--primary); outline-offset: 2px; }
+.outline { list-style: none; margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-solid); max-height: 46vh; overflow: auto; }
+.outline ul { list-style: none; margin: 0; padding-left: 16px; }
+.outline-item { border-radius: 8px; }
+.outline-item:focus-visible { outline-offset: -2px; }
+.outline-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 44px; padding: 4px 8px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+.outline-item[aria-selected='true'] > .outline-row { background: var(--primary-soft); }
+.outline-kind { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); }
+.detail dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+.detail dt { font-weight: 700; color: var(--muted); }
+.detail dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
