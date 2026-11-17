@@ -1,7 +1,9 @@
 //! `xtask plan`: wrangler.toml declares the Workers Paid features the design relies on
 //! (D11: `limits.cpu_ms`, SQLite-backed Durable Objects for every binding) and none it rules
 //! out (queues, logpush, KV-backed object classes); every per-event CPU ceiling in the
-//! budget sits below `limits.cpu_ms`; and deploy.yml deploys on a push to main, never a PR.
+//! budget sits below `limits.cpu_ms`; the site is served as static assets through the
+//! Worker (`[assets]`, so every page carries the Worker's security headers); and deploy.yml
+//! deploys on a push to main, never a PR.
 
 use std::path::Path;
 
@@ -21,12 +23,13 @@ pub fn run(root: &Path) -> Result<String, String> {
         .parse::<Table>()
         .map_err(|e| format!("{WRANGLER}: {e}"))?;
     let mut problems = check_wrangler(&wrangler);
+    problems.extend(check_assets(&wrangler));
     let ceilings = budget::table(&budget::load(root)?, "node")?.clone();
     problems.extend(check_ceilings(&wrangler, &ceilings));
     problems.extend(check_deploy(&read(DEPLOY)?));
     if problems.is_empty() {
         Ok(
-            "plan: PASS (Paid features declared, budget under limits.cpu_ms, deploy on main only)"
+            "plan: PASS (Paid features declared, budget under limits.cpu_ms, site assets through the Worker, deploy on main only)"
                 .into(),
         )
     } else {
@@ -113,6 +116,43 @@ pub fn check_ceilings(w: &Table, node: &Table) -> Vec<String> {
                 "budget {ceiling} = {ms} is not below limits.cpu_ms = {limit}"
             )),
             Err(e) => Some(e),
+        })
+        .collect()
+}
+
+/// What `[assets]` must say, by key: the built site (`site/dist`, what `npm run build` in
+/// `site/` writes), the binding the Worker's routes fetch (`ASSETS`), every request through
+/// the Worker first (else an asset is served without the CSP), and the SPA fallback that
+/// serves `/p/<project>` and `/auth/return` deep links.
+pub const ASSETS_REQUIRED: &[(&str, AssetValue)] = &[
+    ("directory", AssetValue::Str("site/dist")),
+    ("binding", AssetValue::Str("ASSETS")),
+    ("run_worker_first", AssetValue::Bool(true)),
+    (
+        "not_found_handling",
+        AssetValue::Str("single-page-application"),
+    ),
+];
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AssetValue {
+    Str(&'static str),
+    Bool(bool),
+}
+
+pub fn check_assets(w: &Table) -> Vec<String> {
+    let Some(assets) = w.get("assets").and_then(Value::as_table) else {
+        return vec!["no [assets]: the site is not served".into()];
+    };
+    ASSETS_REQUIRED
+        .iter()
+        .filter_map(|(key, want)| {
+            let ok = match (want, assets.get(*key)) {
+                (AssetValue::Str(s), Some(Value::String(v))) => v == s,
+                (AssetValue::Bool(b), Some(Value::Boolean(v))) => v == b,
+                _ => false,
+            };
+            (!ok).then(|| format!("[assets] {key} must be {want:?}"))
         })
         .collect()
 }

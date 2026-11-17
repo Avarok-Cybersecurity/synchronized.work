@@ -16,6 +16,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # wrangler's anonymous usage metrics are a call to Cloudflare; CI makes none it does not need.
+  WRANGLER_SEND_METRICS: false
   RUSTFLAGS: -D warnings
   # The wasm test runner must match the wasm-bindgen pinned in Cargo.toml.
   WASM_BINDGEN_VERSION: 0.2.129
@@ -52,6 +54,10 @@ jobs:
         run: cargo check $PURE_CRATES --locked --target wasm32-unknown-unknown
       - name: Run the pure crates' tests on wasm32 (node)
         run: cargo test $PURE_CRATES --locked --target wasm32-unknown-unknown
+      - name: The site's view core on wasm32 (golden layout, round trip)
+        run: |
+          cargo clippy -p sw-view-wasm --all-targets --locked --target wasm32-unknown-unknown -- -D warnings
+          cargo test -p sw-view-wasm --locked --target wasm32-unknown-unknown
       - name: Build the node, its store and the Worker for wasm32-unknown-unknown
         env:
           # getrandom's browser backend; RUSTFLAGS replaces .cargo/config.toml's rustflags.
@@ -64,6 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       WORKER_BUILD_VERSION: 0.8.7
+      CI: true
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install
@@ -72,6 +79,12 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: cargo install --locked worker-build --version "$WORKER_BUILD_VERSION"
+      - run: cargo install --locked wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION"
+      # The site (lane S3) is the Worker's [assets]: it must exist before the dry run.
+      - name: Build the site (wasm view core, typecheck, vite)
+        run: npm ci --prefix site && npm run build --prefix site
+      - name: site-size (the built site's gzip is within budget.toml)
+        run: cargo run --locked -p xtask -- site-size site/dist
       - name: wrangler deploy --dry-run (builds the bundle; uploads nothing, no credentials)
         # The wasm build alone takes getrandom's browser backend; a job-wide RUSTFLAGS would
         # also reach the native `cargo install` above and break getrandom there.
@@ -80,6 +93,11 @@ jobs:
         run: npx wrangler deploy --dry-run --outdir target/bundle
       - name: size (the bundle's gzip is within budget.toml)
         run: cargo run --locked -p xtask -- size target/bundle
+      - run: npx --prefix site playwright install --with-deps chromium
+      - name: Playwright against wrangler dev (the real Worker and site; unprovisioned node)
+        env:
+          RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
+        run: npm run test:e2e --prefix site
 
   gates:
     runs-on: ubuntu-latest

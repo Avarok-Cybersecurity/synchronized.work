@@ -28,7 +28,17 @@ pub fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
         let name = entry.file_name();
         if matches!(
             name.to_str(),
-            Some("target" | ".git" | "node_modules" | ".wrangler" | "build")
+            Some(
+                "target"
+                    | ".git"
+                    | "node_modules"
+                    | ".wrangler"
+                    | "build"
+                    | "dist"
+                    | "pkg"
+                    | "test-results"
+                    | "playwright-report"
+            )
         ) {
             continue;
         }

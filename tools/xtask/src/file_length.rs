@@ -5,7 +5,9 @@ use std::path::Path;
 use crate::workspace::walk;
 
 pub const MAX_LINES: usize = 250;
-const SOURCE_EXTENSIONS: &[&str] = &["rs", "toml", "yml", "yaml", "sh", "js", "mjs", "ts", "tsx"];
+const SOURCE_EXTENSIONS: &[&str] = &[
+    "rs", "toml", "yml", "yaml", "sh", "js", "mjs", "ts", "tsx", "css",
+];
 
 pub fn run(root: &Path) -> Result<String, String> {
     let mut files = Vec::new();
