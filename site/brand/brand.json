@@ -1,0 +1,17 @@
+{
+  "//": "The site's identity, once: scripts/brand.mjs derives the icons, og-image and manifest from it and public/logo.svg; vite/head.ts derives the <head> tags. Colours are the tokens in src/styles/tokens.css.",
+  "origin": "https://synchronized.work",
+  "name": "synchronized.work",
+  "shortName": "synchronized",
+  "tagline": "Everyone's coding agents, one live tree.",
+  "description": "Cross-person coordination for coding agents: one live tree of projects, tasks, people, agents and progress, with post-quantum signed prompts and Sign in with Citadel.",
+  "ogImageAlt": "The synchronized.work tree mark beside the words synchronized.work and Everyone's coding agents, one live tree.",
+  "colors": {
+    "primary": "#5b3fa6",
+    "green": "#76b900",
+    "pageLight": "#f7f6fb",
+    "pageDark": "#0f0c1a",
+    "inkDark": "#f2effa",
+    "bodyDark": "#d6d1e8"
+  }
+}

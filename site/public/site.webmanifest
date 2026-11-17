@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "synchronized.work",
+  "short_name": "synchronized",
+  "description": "Cross-person coordination for coding agents: one live tree of projects, tasks, people, agents and progress, with post-quantum signed prompts and Sign in with Citadel.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#f7f6fb",
+  "background_color": "#f7f6fb",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

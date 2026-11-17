@@ -5,6 +5,7 @@ import './styles/base.css';
 import './styles/landing.css';
 import { App } from './App';
 import { applyStoredTheme } from './theme';
+import { registerServiceWorker } from './pwa';
 
 applyStoredTheme();
 const root = document.getElementById('root');
@@ -14,3 +15,4 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+registerServiceWorker();
