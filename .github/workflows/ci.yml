@@ -63,7 +63,6 @@ jobs:
   worker:
     runs-on: ubuntu-latest
     env:
-      RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
       WORKER_BUILD_VERSION: 0.8.7
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +73,10 @@ jobs:
       - run: npm ci
       - run: cargo install --locked worker-build --version "$WORKER_BUILD_VERSION"
       - name: wrangler deploy --dry-run (builds the bundle; uploads nothing, no credentials)
+        # The wasm build alone takes getrandom's browser backend; a job-wide RUSTFLAGS would
+        # also reach the native `cargo install` above and break getrandom there.
+        env:
+          RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
         run: npx wrangler deploy --dry-run --outdir target/bundle
       - name: size (the bundle's gzip is within budget.toml)
         run: cargo run --locked -p xtask -- size target/bundle

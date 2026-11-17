@@ -17,7 +17,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
+  RUSTFLAGS: -D warnings
   WORKER_BUILD_VERSION: 0.8.7
 
 jobs:
@@ -33,12 +33,16 @@ jobs:
       - run: cargo install --locked worker-build --version "$WORKER_BUILD_VERSION"
       - name: Plan gate (Paid features, deploy on main only)
         run: cargo run --locked -p xtask -- plan
-      - name: Build and check the bundle size
-        run: |
-          npx wrangler deploy --dry-run --outdir target/bundle
-          cargo run --locked -p xtask -- size target/bundle
+      - name: Build the bundle
+        # getrandom's browser backend for the wasm build only (see ci.yml's worker job).
+        env:
+          RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
+        run: npx wrangler deploy --dry-run --outdir target/bundle
+      - name: Size gate
+        run: cargo run --locked -p xtask -- size target/bundle
       - name: Deploy
         env:
+          RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy --var "SW_BUILD_SHA:${GITHUB_SHA}"
