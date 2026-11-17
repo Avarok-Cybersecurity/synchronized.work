@@ -1,0 +1,11 @@
+{
+  "node_gap": 24,
+  "level_gap": 120,
+  "sizes": {
+    "project": [220, 64],
+    "task": [220, 72],
+    "person": [180, 56],
+    "agent": [180, 56],
+    "progress": [200, 64]
+  }
+}
