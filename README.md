@@ -41,10 +41,19 @@ cargo run -p xtask -- conformance --repin <contract dir> <parent rev>
 The site (Node 22; `wasm-bindgen` at the version Cargo.lock pins):
 
 ```sh
-npm ci --prefix site && npm run build --prefix site   # wasm core, typecheck, vite -> site/dist
+npm ci --prefix site
+SITE_BUILD_SHA=$(git rev-parse HEAD) npm run build --prefix site  # wasm core, typecheck, vite -> site/dist
 cargo run -p xtask -- site-size site/dist
 npm run test:e2e --prefix site                         # Playwright against `wrangler dev`
+npm run brand --prefix site                            # regenerate the icons, og-image, manifest
+npm run brand:check --prefix site                      # CI: the derived files match their sources
 ```
+
+The site's identity has two sources: `site/public/logo.svg` (the mark) and
+`site/brand/brand.json` (name, tagline, description, colours). `site/scripts/brand.mjs` derives
+every icon, `favicon.ico`, `og-image.png` and `site.webmanifest` from them, and
+`site/vite/head.mjs` derives the `<head>` tags; never edit a derived file by hand. The build
+needs `SITE_BUILD_SHA`, which versions the service worker's cache.
 
 ## Links
 

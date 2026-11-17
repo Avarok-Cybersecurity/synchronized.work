@@ -2,13 +2,15 @@
   "name": "synchronized-work-site",
   "private": true,
   "type": "module",
-  "//": "The view only (master plan \u00a79a): layout, protocol and sign-in logic are the Rust core in crates/sw-view-wasm. Exact pins, each at least two weeks old when chosen.",
+  "//": "The view only (master plan §9a): layout, protocol and sign-in logic are the Rust core in crates/sw-view-wasm. Exact pins, each at least two weeks old when chosen.",
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "npm run build:wasm && npm run typecheck && vite build",
     "dev": "vite",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "brand": "node scripts/brand.mjs",
+    "brand:check": "node scripts/brand.mjs --check"
   },
   "dependencies": {
     "@xyflow/react": "12.12.0",
@@ -18,11 +20,13 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.64.1",
+    "@resvg/resvg-js": "2.6.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "playwright-core": "1.64.1",
     "typescript": "7.0.2",
     "vite": "8.3.5"
-  }
+  },
+  "//resvg": "@resvg/resvg-js (devDependency only): rasterises public/logo.svg into the icons and og-image in scripts/brand.mjs, with no browser and no system fonts, so CI can regenerate them byte for byte and fail on drift."
 }

@@ -4,10 +4,10 @@
 //! served without these.
 
 /// `'wasm-unsafe-eval'` lets the page compile its own wasm (the view core); it does not allow
-/// `eval` of JavaScript. `form-action` admits the issuer because "Sign in with Citadel" is a
+/// `eval` of JavaScript. `worker-src` admits only the site's own service worker (/sw.js). `form-action` admits the issuer because "Sign in with Citadel" is a
 /// navigation there. Nothing inline: no script or style attribute in markup is honoured.
 pub const CONTENT_SECURITY_POLICY: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; \
-style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; \
+style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; \
 base-uri 'none'; form-action 'self' https://work.avarok.net; frame-ancestors 'none'; \
 upgrade-insecure-requests";
 

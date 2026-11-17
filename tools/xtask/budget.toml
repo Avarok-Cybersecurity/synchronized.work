@@ -47,4 +47,7 @@ max_gzip_bytes = 400_000
 [site.measured]
 # 2026-11-17: vite 8.3.5 build of site/ (React 19.3.1, @xyflow/react 12.12.0) plus the
 # sw-view-wasm release build (opt-level "z", no wasm-opt).
-gzip_bytes = 263_502
+# 2026-11-17, the identity and PWA files added (icons, favicon.ico, og-image, manifest, sw.js,
+# offline page): 326_011, under the unchanged ceiling. PNGs barely gzip, so they count nearly
+# at their size (~65 KB in all, the og-image 34 KB of it).
+gzip_bytes = 326_011

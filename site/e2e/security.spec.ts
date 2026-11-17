@@ -2,14 +2,14 @@ import { expect, test } from '@playwright/test';
 import { watchCsp } from './support';
 
 // The directives that make the policy strict; the full value is crates/sw-worker/src/security.rs.
-const STRICT = ["default-src 'none'", "script-src 'self' 'wasm-unsafe-eval'", "style-src 'self'", "connect-src 'self'", "frame-ancestors 'none'", "base-uri 'none'"];
+const STRICT = ["default-src 'none'", "script-src 'self' 'wasm-unsafe-eval'", "style-src 'self'", "connect-src 'self'", "worker-src 'self'", "manifest-src 'self'", "frame-ancestors 'none'", "base-uri 'none'"];
 
 test('every page and asset carries the Worker\'s strict CSP', async ({ request }) => {
   const page = await request.get('/');
   const html = await page.text();
   const asset = html.match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
   expect(asset, 'the shell names its script').toBeTruthy();
-  for (const path of ['/', '/p/demo', '/auth/return', String(asset), '/favicon.svg', '/healthz']) {
+  for (const path of ['/', '/p/demo', '/auth/return', String(asset), '/favicon.svg', '/og-image.png', '/sw.js', '/site.webmanifest', '/healthz']) {
     const csp = (await request.get(path)).headers()['content-security-policy'] ?? '';
     for (const directive of STRICT) expect(csp, `${path}: ${directive}`).toContain(directive);
     expect(csp, path).not.toContain('unsafe-inline');

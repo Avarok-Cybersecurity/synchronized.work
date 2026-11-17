@@ -122,16 +122,14 @@ pub fn check_ceilings(w: &Table, node: &Table) -> Vec<String> {
 
 /// What `[assets]` must say, by key: the built site (`site/dist`, what `npm run build` in
 /// `site/` writes), the binding the Worker's routes fetch (`ASSETS`), every request through
-/// the Worker first (else an asset is served without the CSP), and the SPA fallback that
-/// serves `/p/<project>` and `/auth/return` deep links.
+/// the Worker first (else an asset is served without the CSP), and no fallback in the binding:
+/// the Worker's own (sw-worker `fallback`) serves `/p/<project>` and `/auth/return` deep links
+/// the shell and a missing file 404, where the binding's SPA mode answered both with the shell.
 pub const ASSETS_REQUIRED: &[(&str, AssetValue)] = &[
     ("directory", AssetValue::Str("site/dist")),
     ("binding", AssetValue::Str("ASSETS")),
     ("run_worker_first", AssetValue::Bool(true)),
-    (
-        "not_found_handling",
-        AssetValue::Str("single-page-application"),
-    ),
+    ("not_found_handling", AssetValue::Str("none")),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq)]

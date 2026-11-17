@@ -23,12 +23,15 @@ command = "cd crates/sw-worker && worker-build --release"
 
 # The site (lane S3): `site/` built by `npm run build` into site/dist. Every request runs the
 # Worker first, so pages and assets carry the Worker's security headers (CSP and the rest,
-# crates/sw-worker/src/security.rs); unknown paths get the app shell, which routes itself.
+# crates/sw-worker/src/security.rs). A miss reaches the Worker (`not_found_handling = "none"`),
+# which serves the app shell for an app route and 404 for a path that names a file
+# (crates/sw-worker/src/fallback.rs): the binding's own SPA mode answered /og-image.png and
+# /favicon.ico with the shell, 200 text/html.
 [assets]
 directory = "site/dist"
 binding = "ASSETS"
 run_worker_first = true
-not_found_handling = "single-page-application"
+not_found_handling = "none"
 
 # CPU per event, in ms. A sign-in on the node is server-side OPRF + ML-KEM + the isolate's
 # Argon2 cost for legacy accounts; the measured figures and their headroom are in
