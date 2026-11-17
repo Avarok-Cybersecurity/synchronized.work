@@ -1,0 +1,24 @@
+[package]
+name = "sw-protocol"
+description = "PURE. synchronized.work SwMessages in canonical CBOR, the Signed (ML-DSA-65) and Sealed (ML-KEM-768 + HKDF-SHA3-256 + AES-256-GCM) envelopes, nonce / exp / seq rules, the P2P envelope and the IdentityPort."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sw-model.workspace = true
+sw-crypto.workspace = true
+ciborium.workspace = true
+data-encoding.workspace = true
+
+[dev-dependencies]
+sw-testkit.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

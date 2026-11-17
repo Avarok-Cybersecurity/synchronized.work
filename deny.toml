@@ -1,0 +1,39 @@
+# cargo-deny: licences are an allowlist (MIT / Apache / BSD family only), sources are
+# crates.io only, and advisories fail the build.
+
+[graph]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+]
+# The allowlist names the BSD family even before a BSD crate appears.
+unused-allowed-license = "allow"
+# Two crates are "(MIT OR Apache-2.0) AND Unicode-3.0" because they embed the Unicode
+# Character Database tables: unicode-normalization (NFKC for the task embedding, design
+# §2.3) and unicode-ident (a build-time proc-macro dependency of serde_derive). Unicode-3.0
+# is allowed for those two crates alone, never globally.
+exceptions = [
+    { name = "unicode-normalization", allow = ["Unicode-3.0"] },
+    { name = "unicode-ident", allow = ["Unicode-3.0"] },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

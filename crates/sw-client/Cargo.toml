@@ -1,0 +1,18 @@
+[package]
+name = "sw-client"
+description = "PURE. The ports synchronized.work clients are written against: SessionPort (the Citadel C2S session to the node) and P2pPort (Citadel P2P between Endpoints). No Citadel dependency: the adapters have it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sw-model.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

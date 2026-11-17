@@ -1,0 +1,19 @@
+[package]
+name = "sw-model"
+description = "PURE. The synchronized.work tree, the tier state machine, readiness and admission order, visibility and the hashed task embedding."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sw-crypto.workspace = true
+unicode-normalization.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true
