@@ -18,12 +18,25 @@ export async function watchCsp(page: Page): Promise<() => Promise<string[]>> {
   return () => page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
 }
 
+/**
+ * Nothing scrolls sideways and nothing is cut off at the viewport's edges. `scrollWidth` alone
+ * is blind here: the body clips horizontal overflow, so every visible element's box is checked
+ * too (the graph canvas and the background pan and scale by design and are skipped).
+ */
 export async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const { scroll, client } = await page.evaluate(() => ({
-    scroll: document.documentElement.scrollWidth,
-    client: document.documentElement.clientWidth,
-  }));
+  const { scroll, client, offenders } = await page.evaluate(() => {
+    const width = document.documentElement.clientWidth;
+    const out: string[] = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.closest('.react-flow, .bg-canvas, .sr-only, .skip')) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.right > width + 1 || r.left < -1) out.push(`${el.tagName.toLowerCase()}.${el.className} ${Math.round(r.left)}..${Math.round(r.right)}`);
+    }
+    return { scroll: document.documentElement.scrollWidth, client: width, offenders: out.slice(0, 8) };
+  });
   expect(scroll, 'the page scrolls sideways').toBeLessThanOrEqual(client);
+  expect(offenders, 'elements cut off at the viewport edge').toEqual([]);
 }
 
 /** WCAG 2.1 AA, with motion settled first so contrast is read from final colours. */
