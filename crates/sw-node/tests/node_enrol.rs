@@ -76,3 +76,30 @@ fn an_endpoint_cannot_be_enrolled_twice_under_two_people() {
     let refused = w.send_as(Who::Bob, Controller, Audience::Node, payload);
     assert!(refused.is_err(), "{refused:?}");
 }
+
+#[test]
+fn an_assertion_from_any_issuer_but_the_pinned_one_creates_no_person() {
+    let mut w = World::new();
+    w.connect(w.alice.controller.cid);
+    let pinned = std::mem::replace(&mut w.issuer, sw_crypto::SigningKey::from_seed(&[0x52; 32]));
+    let forged = w.enrol_payload(&w.alice, &w.alice.controller);
+    w.issuer = pinned;
+    let refused = w.send_as(Who::Alice, Controller, Audience::Node, forged);
+    assert!(refused.is_err(), "{refused:?}");
+    assert!(
+        w.node
+            .directory()
+            .person(&w.alice.identity.id_fp())
+            .is_none()
+    );
+    // The same Endpoint, asserted by the pinned issuer, is accepted.
+    let genuine = w.enrol_payload(&w.alice, &w.alice.controller);
+    w.send_as(Who::Alice, Controller, Audience::Node, genuine)
+        .unwrap();
+    assert!(
+        w.node
+            .directory()
+            .person(&w.alice.identity.id_fp())
+            .is_some()
+    );
+}
