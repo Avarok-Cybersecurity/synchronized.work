@@ -1,0 +1,8 @@
+{
+  "name": "synchronized-work",
+  "private": true,
+  "//": "wrangler only: the Worker is Rust (workers-rs). Pinned like the tenant Worker's.",
+  "devDependencies": {
+    "wrangler": "4.136.3"
+  }
+}

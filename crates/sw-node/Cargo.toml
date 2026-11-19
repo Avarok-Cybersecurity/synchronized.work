@@ -1,0 +1,39 @@
+[package]
+name = "sw-node"
+description = "The synchronized.work Citadel node: provisioning, the node's business rules over sw-protocol and sw-model, and the NetKernel that runs them inside the Citadel SDK."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+
+[dependencies]
+sw-model.workspace = true
+sw-protocol.workspace = true
+sw-crypto.workspace = true
+citadel-identity.workspace = true
+citadel_sdk.workspace = true
+citadel_user.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+ciborium.workspace = true
+zeroize.workspace = true
+log.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+citadel_sdk = { workspace = true, features = ["std", "filesystem"] }
+citadel_user = { workspace = true, features = ["std", "filesystem"] }
+
+[dev-dependencies]
+sw-testkit.workspace = true
+data-encoding.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# The SDK's own localhost test harness: a real Citadel client dials the node in the tests.
+citadel_sdk = { workspace = true, features = ["std", "filesystem", "localhost-testing"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+
+[lints]
+workspace = true

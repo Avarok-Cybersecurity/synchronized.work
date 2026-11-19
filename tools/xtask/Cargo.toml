@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-description = "CI gates for synchronized.work: file-length, sbio, conformance."
+description = "CI gates for synchronized.work: file-length, sbio, conformance, plan, size, node-budget."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,8 @@ license.workspace = true
 publish = false
 
 [dependencies]
+toml.workspace = true
+serde_json.workspace = true
 sw-testkit.workspace = true
 sw-crypto.workspace = true
 

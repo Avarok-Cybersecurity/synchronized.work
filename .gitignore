@@ -3,3 +3,6 @@
 .DS_Store
 /pkg/
 node_modules/
+/crates/sw-worker/build/
+/.wrangler/
+/.dev.vars

@@ -8,7 +8,12 @@ members = [
     "crates/sw-graph",
     "crates/sw-testkit",
     "crates/sw-mcp",
+    "crates/sw-node",
+    "crates/sw-store-do",
+    "crates/sw-worker",
+    "crates/sw-view-wasm",
     "tools/xtask",
+    "tools/sw-bench",
 ]
 
 [workspace.package]
@@ -29,6 +34,8 @@ sw-crypto = { path = "crates/sw-crypto", version = "0.1.0" }
 sw-client = { path = "crates/sw-client", version = "0.1.0" }
 sw-graph = { path = "crates/sw-graph", version = "0.1.0" }
 sw-testkit = { path = "crates/sw-testkit", version = "0.1.0" }
+sw-node = { path = "crates/sw-node", version = "0.1.0" }
+sw-store-do = { path = "crates/sw-store-do", version = "0.1.0" }
 ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "zeroize"] }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "hazmat"] }
 sha3 = { version = "0.11", default-features = false }
@@ -39,30 +46,42 @@ ciborium = { version = "0.2.2", default-features = false, features = ["std"] }
 unicode-normalization = { version = "0.1.25", default-features = false }
 zeroize = { version = "1.8", default-features = false }
 serde_json = { version = "1.0.151", default-features = false, features = ["std"] }
+serde = { version = "1.0", default-features = false, features = ["std", "derive"] }
 data-encoding = { version = "2.10", default-features = false, features = ["alloc"] }
 # Exact pins: the wasm test runner (`wasm-bindgen-test-runner`, installed in CI at the same
 # version) refuses a crate built against any other wasm-bindgen.
 wasm-bindgen-test = "=0.3.79"
 wasm-bindgen = "=0.2.129"
 
-# Adapter-only dependencies (sw-mcp; never a pure crate's, which the sbio gate enforces). The
-# Citadel SDK is pinned once, at the rev the parent workspace and the tenant Worker use (design
-# §10). The identity crate is lane I1's `citadel-identity`, pinned to the citadel-internal-service
-# commit that carries the sign-in proof and assertion (sign-in-with-citadel.md §1a, §6).
-citadel_sdk = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb" }
-# The account store's credential rules (the username cap is set by the node that builds it).
+# The Citadel SDK at the rev the hosted tenant Worker runs (design §10), without default features
+# so the wasm32 build carries no filesystem backend; native builds add `std`.
+citadel_sdk = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb", default-features = false }
+citadel_io = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb", default-features = false }
 citadel_user = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb", default-features = false }
-citadel-identity = { git = "https://github.com/Avarok-Cybersecurity/citadel-internal-service", rev = "5b2374e" }
-tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "net", "io-util", "io-std", "time", "sync", "fs", "signal"] }
+# The portable identity (lane I1, frozen identity-api contract): the IdentityPort adapter and the
+# server key behind /.well-known/citadel. Pinned to the published batch-1116 commit.
+citadel-identity = { git = "https://github.com/Avarok-Cybersecurity/citadel-internal-service", rev = "5b2374ec9958a31f7b4e2a45b37ca454e14911db" }
+# lattice-db main at 88b9084a (v0.5.0, untagged): the storage trait, the wasm DurableEngine and
+# the exported LatticeStorage conformance suite.
+latticedb-core = { git = "https://github.com/Avarok-Cybersecurity/lattice-db", rev = "88b9084a3ae45aa1c44617ffc605d2082c111b8e" }
+latticedb-test-harness = { git = "https://github.com/Avarok-Cybersecurity/lattice-db", rev = "88b9084a3ae45aa1c44617ffc605d2082c111b8e" }
+async-trait = "0.1"
+log = "0.4"
+# workers-rs at the last release built against the pinned wasm-bindgen (0.9 needs 0.2.130).
+worker = "=0.8.7"
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", default-features = false }
+tokio = { version = "1", default-features = false }
+futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+toml = { version = "0.8", default-features = false, features = ["parse"] }
+# Adapter-only dependencies of sw-mcp (never a pure crate's, which the sbio gate enforces). It
+# takes the SDK above with `std` and `filesystem`, and tokio with the runtime features it needs.
 rmcp = { version = "0.16", features = ["server", "transport-io"] }
 schemars = "1"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
 clap = { version = "4.5", features = ["derive"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 getrandom = "0.3"
-futures = "0.3"
-log = "0.4"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -78,3 +97,9 @@ opt-level = "z"
 lto = true
 strip = true
 codegen-units = 1
+
+# The Worker keeps its custom sections: wasm-bindgen reads `target_features` to see that the
+# module uses reference types (the externref table worker-build's abort handler needs), and a
+# fully stripped module has none. Debug info is still dropped.
+[profile.release.package.sw-worker]
+strip = "debuginfo"

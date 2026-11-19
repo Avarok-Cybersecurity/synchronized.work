@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 const PIN: &str = "contract.pin";
 /// Mirrored files outside `fixtures/sw-wire/`, by their path in the contract dir.
-const LOOSE: [&str; 2] = ["sign-in-kat.json", "sw-wire-kat.json"];
+const LOOSE: [&str; 3] = ["identity-kat.json", "sign-in-kat.json", "sw-wire-kat.json"];
 
 /// Every mirrored file as (path in the contract dir, path under our `fixtures/`).
 fn mirrored(ours: &Path) -> Result<Vec<(String, PathBuf)>, String> {
