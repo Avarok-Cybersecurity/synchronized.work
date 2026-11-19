@@ -25,6 +25,13 @@ ignore = [
     # chrono is flagged unmaintained (advisory published 2026-11-17); reached via the SDK's
     # citadel_proto and via workers-rs (worker 0.8.7). No vulnerability; needs both to move off it.
     { id = "RUSTSEC-2026-0543", reason = "SDK's citadel_proto and workers-rs -> chrono; unmaintained only" },
+    # sw-mcp's tree (design §9). rmcp 0.16 is built with `server` + `transport-io` only:
+    # stdio, never HTTP, never a socket, so its HTTP transports' advisories cannot reach it.
+    { id = "RUSTSEC-2026-0189", reason = "rmcp HTTP server transport not compiled (stdio only)" },
+    { id = "RUSTSEC-2026-0462", reason = "rmcp HTTP client transport not compiled (stdio only)" },
+    # Reached through the native SDK build sw-mcp uses; unmaintained only.
+    { id = "RUSTSEC-2023-0089", reason = "atomic-polyfill unmaintained, inside the pinned SDK" },
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 unmaintained, a build-time macro dependency" },
 ]
 
 [licenses]
@@ -35,13 +42,19 @@ allow = [
     "Apache-2.0",
     "BSD-2-Clause",
     "BSD-3-Clause",
+    # Permissive licences of sw-mcp's native tree (the Citadel SDK, rustls/ring and reqwest's URL
+    # stack): ISC (ring, rustls-webpki, untrusted, libloading), Zlib (foldhash),
+    # CDLA-Permissive-2.0 (the Mozilla root list in webpki-roots) and Unicode-3.0 (the ICU data
+    # crates under `url`/`idna`, as well as the two crates the exceptions below used to name).
+    "ISC",
+    "Zlib",
+    "CDLA-Permissive-2.0",
+    "Unicode-3.0",
 ]
 # The allowlist names the BSD family even before a BSD crate appears.
 unused-allowed-license = "allow"
-# Two crates are "(MIT OR Apache-2.0) AND Unicode-3.0" because they embed the Unicode
-# Character Database tables: unicode-normalization (NFKC for the task embedding, design
-# §2.3) and unicode-ident (a build-time proc-macro dependency of serde_derive). Unicode-3.0
-# is allowed for those two crates alone, never globally.
+# Crate by crate: the node's tree (sw-node, sw-worker) is listed below. sw-mcp's native tree
+# needs the four permissive licences above globally.
 exceptions = [
     { name = "unicode-normalization", allow = ["Unicode-3.0"] },
     { name = "unicode-ident", allow = ["Unicode-3.0"] },

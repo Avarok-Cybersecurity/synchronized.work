@@ -7,6 +7,7 @@ members = [
     "crates/sw-client",
     "crates/sw-graph",
     "crates/sw-testkit",
+    "crates/sw-mcp",
     "crates/sw-node",
     "crates/sw-store-do",
     "crates/sw-worker",
@@ -74,6 +75,13 @@ web-sys = { version = "0.3", default-features = false }
 tokio = { version = "1", default-features = false }
 futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
 toml = { version = "0.8", default-features = false, features = ["parse"] }
+# Adapter-only dependencies of sw-mcp (never a pure crate's, which the sbio gate enforces). It
+# takes the SDK above with `std` and `filesystem`, and tokio with the runtime features it needs.
+rmcp = { version = "0.16", features = ["server", "transport-io"] }
+schemars = "1"
+clap = { version = "4.5", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+getrandom = "0.3"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
