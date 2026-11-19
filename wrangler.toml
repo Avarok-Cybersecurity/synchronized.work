@@ -54,12 +54,20 @@ new_sqlite_classes = ["ServerDo"]
 # Secrets, set by the operator with `wrangler secret put`, never here:
 #   SW_SERVER_KEY_SEED       32 bytes as 64 hex, from the OS CSPRNG: the node's identity key
 #   SW_OPRF_SEED             32 bytes as 64 hex: post-quantum sign-in's OPRF seed
+# and two public values, set in [vars] below:
 #   SW_SERVER_KEY_ISSUED_AT  Unix seconds the key was issued (changed only with the key)
 #   SW_SIGN_IN_ISSUER_PK     work.avarok.net's pinned server key (base64url ML-DSA-65), read
 #                            from its /.well-known/citadel once it is served
 # Until all four are set the node refuses to start: every upgrade is answered 503.
 [vars]
 SW_FORMER_DOMAINS = "-"
+# Unix seconds at which SW_SERVER_KEY_SEED was generated (2026-11-19, by the operator); it
+# changes only with that secret. A string, as every var here: the node parses it as u64.
+SW_SERVER_KEY_ISSUED_AT = "1795114251"
+# work.avarok.net's server key: the `server_key.pk` of https://work.avarok.net/.well-known/citadel
+# (issued_at 1794930356), whose self-signature was checked with citadel-identity's
+# parse_well_known before pinning. It is the only issuer of ENROL sign-in assertions.
+SW_SIGN_IN_ISSUER_PK = "axafPy0xqhXcxx26CAoDsA2iM8KhBBcDnz7yu8z-vD5hiy1r8kh_BdCE924MLIBaS0meuH4541oNemYxVDMX-Ug_iCqo0SDpnWZv7p_nL03ENiPVR-rigiwbELtCba6oNz6qBPncRgb9p7Bvgb-WJrU0P6kJ-OLwlns_G7avwS538TuhtSOeGLieIBHVr4SMGQiGzHWOcjfovGqeS0iwC8nnR20qvkyEjGv2wioxTxvUywOG6TplAPbhlzQbkZNj7DZeR7VeVYbYqbk2yse8cAOqM3JPUKRWlxVauODl8Ri_X_CHZ7bOP6GJo8JebexrjUMDE2GFLi-oCvcsEH3MPaDbkIFPnBk3v2C5Qqe6Lb6RG9h4_c7gjR1Z-yKTyxJDtNTmY_r5qYvNtK4cQyw4TLSYnl_c8MQGLsyPr1ZncMbcj2UnTCokK4q3Fq4t_r6P3EYvtqrrS4ymJtWi7VRxn4oB9Yz-4gImvGH53atWEZ4dRXbxhwuwlIfHRKSZVj0cXG2OYTERirBNhlu9UcYByM1AxRPfMZu_Bftc4UMFHaitPpTHF8XKViYWOB4DOGhxa7X20jWw13xyrwUJdH2xq_KVmwlQ3rwXL6JNMoXwW4cVivfYAi_PSgDADW_Gi-7ronwrAgTer3AxKWM_ORFkmhmH5F4uyZPNaQLCY5CQ-RnSNkc-4e7F01Eb8ardzDkDrGfFDQiRuiA8G11NAIUShT-_bIUk5umLHC1nX6uM2Bsn0AOBZ4v69bKtagDe0WDyb94Jls102DIn-xGZJoOrWk83zln5d9ijFmZugzY5obCm873NJYZjUwd4aig7O-NMgWQSrZ2WM6ni_IjKu9PfTH4dt3RcfTi4bA92dm5DAYHUR9fDzc2vfLLG-TTq-Rq7YIGYksz37bnwnnZLP3d9kCYRb-bwESnVwrlvnVWeoOKfmqruXroqqKabbVhkpkbyQPzPraa7wdgezgMEuBl5R4ut7ojTcPz1smeOF6HGGuVhm46emBZ-0U_BW5iaZyp1BoNFeUEYyZHngcxBkWrrhxsZ72-SATjYxlFxN1ytA9th5nKIS97Sps7tCROvhawwf7E-I4O95VvSvVYOnC3OYNdmEHqrJUXll-jwuOjfZpsnjSZEsIioHiOCXxWVU2GnBLxMzLaiSLdTqo5lzCP0RKzq-rvu7X8JaN0Pms1jS2YqEetUTzqx8E3lkRPZdlXgi8kN2UcS-Tm8W3YRW5XYCchYduOxAHYIe9eQ2wNHLdsxBeq92Jqw7JMbRLcgUzmzY0UfNLKvjpPlUvSzaeElvPD7deu36j_dkS90gl9oPw4y_Vcq8MVpQbktRaOpfuypOSHXLShUrP2UM4JqMO07dFuzbKEjx5qUwjTxRjh0NoYRJgTkdM2UptcspUpTyrH4UhjuugTMu4XzQSu105zSHhaxNiODX5n1wfDX8QOAyRuX8woUQg9pU6QnX7wqtgLRpZADhQuihB8jisWlp8ZVoe5gDp1TERoY7OyuHttOG-Dj8LvXt-0SwDV9C-RMlqklzRuL5tS3LL85Bcd5tnhc9ifu4xX0OMo7qO073r56Asor2Xi96P5x7y2ACaBlXaafYjdwQg9HL7CzRMJEhZ7ljCrfQduMBo2Fk8Gl7tepjW_JQxXpMyhEVS5vWxofQYRfWDrX78pS_G2gs5SbX6LpGhSHZzTDDvFD1dB6H7Gdx1u9bPQvNEIS4Evl5uA9GM7iSDknzFcakJmg7Awl1Pv4mTtz4gjUSNf8XgWCxssck_I8VXGeNhgX9-hwWhgKiprMRfpEb0o_pheRGwJWDbyuzXM-w6Podr6DKlg1VOMx5YuZluw62UhYXCKFtcw4b46nhHOkDKTMJGMXeUJjX-2PwC-arU8o-w69NfNX5-a92YUQV6m6wLYwlBFjBIX0ziL7PSKMP_ngjPWfPUypDnFhWFBSP0mOuPd2_cg4_xEG32BfzvtwQRjUNmM6XrDfDTkSzigF1DGHRy9TaV1B4JqGi3mfu-icumEo7-Urt_RjWr-Z2DVT08u3f7bqEfn_2mQDK_gmwhHNJtluYbt08hxYXxoCwaiwMkSGs5Jnrw75mzlAzVd08UJvSr7UnFA9jtYaVsCZTIwPMXvVhGAjRvnVMOlCwbnoMs0zM9lQe6o3zHbF0658CqTQYZTuwgipri8xrLrcIYnZrbrxxKKIibLI0surL89Sb44EsXhmLyhElnZ6khBuO1_ZQ9PgOjGnVH9l7Y9eigDSZCvEly9pxNoAeJK27rz1ruff-ay2b6pdUVFIvZZvpf8RBhU13qzQrUcoe9Ia_KyWl-98n-s_kbLS322WgGXOKLPhCevutuhonhdSP7SB7GvgSvmmHmWfAEgGd2T3gvTlq87ntA1ic7fogxxrFrAEq3FNroCqiPftb_1IzcfDZw0tJXPTshkAnaxsVxJ573KR3f7kMDZ74ITkNYfSYqdS8Ncjc_oT96dlVEUy6NaCbP_VLxDK-qjHJ94yHscRbiadawa3iU_C7zUpYOik4PUSZgIxVle1rJi0guyA2TjyLb0wVscnM-X1X5JUKBEtXhNPg1q_DA4drZ1PwEotaM8EWjVmbGuifoS16Mk"
 SW_CITADEL_WSS = "wss://synchronized.work/citadel"
 # Server-side Argon2 for legacy accounts, sized for a 128 MB isolate metered per event.
 ARGON_LANES = "1"
