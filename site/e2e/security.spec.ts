@@ -38,3 +38,14 @@ test('the issuer\'s return POST is redirected to a page that says sign-in cannot
   await page.goto('/auth/return');
   await expect(page.getByRole('heading', { name: "Sign-in can't finish here yet" })).toBeVisible();
 });
+
+test('the installers are served as the scripts they are', async ({ request }) => {
+  const ps1 = await request.get('/install.ps1');
+  expect(ps1.status()).toBe(200);
+  // PowerShell's `irm … | iex` needs text; the binding alone would say application/octet-stream.
+  expect(ps1.headers()['content-type']).toBe('text/plain; charset=utf-8');
+  expect(await ps1.text()).toContain('sw-mcp-windows-x64.zip');
+  const sh = await request.get('/install.sh');
+  expect(sh.status()).toBe(200);
+  expect(await sh.text()).toContain('sw-mcp-linux-x64.tar.gz');
+});

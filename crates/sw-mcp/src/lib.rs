@@ -2,7 +2,8 @@
 //!
 //! Pure decisions — the gate, the provenance frame, the status projection, sign-in, the
 //! allowlist format and every outbound message — sit beside the adapters that do I/O: the
-//! Citadel session, the issuer over HTTPS, `~/.synchronized/`, the Unix socket and stdio.
+//! Citadel session, the issuer over HTTPS, `~/.synchronized/`, the daemon's local endpoint (a
+//! Unix socket, or a named pipe on Windows) and stdio.
 
 pub mod adapters;
 pub mod cli;

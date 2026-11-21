@@ -70,7 +70,8 @@ pub enum Harness {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyStoreKind {
-    /// Files under `keys/`, mode 0600 in a 0700 directory, protected by file permissions only.
+    /// Files under `keys/`, protected by owner-only permissions only: mode 0600 in a 0700
+    /// directory on Unix, an owner-only, non-inherited ACL on Windows (`crate::home`).
     /// The OS-keychain wrapping of design §5.4 is not built yet; this kind says so at startup.
     File,
 }

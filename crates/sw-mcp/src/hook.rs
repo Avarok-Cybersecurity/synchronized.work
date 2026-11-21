@@ -50,7 +50,7 @@ pub fn run(home: &Home, kind: HookKind) -> Result<Option<Value>, String> {
         cwd: input.cwd,
         interrupt_only: kind == HookKind::PreToolUse,
     };
-    let answer = call(&home.socket(), &request, 0)?;
+    let answer = call(home.ipc(), &request, 0)?;
     let instruction = answer.get("instruction").and_then(Value::as_str);
     Ok(output(kind, instruction))
 }

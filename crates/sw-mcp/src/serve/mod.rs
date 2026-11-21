@@ -59,7 +59,7 @@ fn reply(result: Result<Value, String>) -> Result<CallToolResult, McpError> {
 
 impl SwServer {
     async fn ask(&self, request: Request, blocks_for_s: u64) -> Result<CallToolResult, McpError> {
-        reply(call_async(self.home.socket(), request, blocks_for_s).await)
+        reply(call_async(self.home.ipc().clone(), request, blocks_for_s).await)
     }
 }
 
@@ -227,7 +227,7 @@ impl rmcp::handler::server::ServerHandler for SwServer {
 
 pub async fn run(home: Home, config: Config, push: bool) -> Result<(), String> {
     let cwd: PathBuf = std::env::current_dir().map_err(|e| e.to_string())?;
-    let socket = home.socket();
+    let socket = home.ipc().clone();
     let server = SwServer::new(home, config, cwd.to_string_lossy().into_owned(), push);
     let service = server
         .serve(rmcp::transport::io::stdio())

@@ -1,0 +1,37 @@
+[package]
+name = "sw-winacl"
+description = "ADAPTER (Windows). Owner-only security for sw-mcp on Windows: the pure SDDL policy (every platform, so it is tested everywhere) and the Win32 calls that read and set owner-only DACLs on files, directories and named pipes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+] }
+tokio = { workspace = true, features = ["net"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+# tests/other_user.rs: log on as a second local user and open a pipe as them.
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
+tokio = { workspace = true, features = ["net", "rt"] }
+
+# The workspace lints, except `unsafe_code`: the workspace forbids it, which no module can lift,
+# and the Win32 security calls cannot be made without it. Here it is `deny`, lifted only in
+# src/ffi.rs and tests/other_user.rs (Windows only), where every `unsafe` block carries its
+# SAFETY argument. Keep the rest in step with [workspace.lints] in the root Cargo.toml.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+undocumented_unsafe_blocks = "deny"

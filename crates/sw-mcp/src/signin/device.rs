@@ -23,7 +23,7 @@ pub async fn complete_here(
     let accepted = complete_sign_in(&port, home, pending, code, &device, issuer, now_s)
         .await
         .map_err(|e| e.to_string())?;
-    let reloaded = call_async(home.socket(), Request::Reload, 0).await;
+    let reloaded = call_async(home.ipc().clone(), Request::Reload, 0).await;
     Ok(
         json!({ "signed_in": true, "device": accepted.device, "assertion_exp_s": accepted.exp_s,
         "daemon": reloaded.unwrap_or_else(|e| json!({ "not_reloaded": e })) }),

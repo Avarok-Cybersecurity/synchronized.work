@@ -44,6 +44,10 @@ zeroize.workspace = true
 log.workspace = true
 openssl = { version = "0.10.82", features = ["vendored"], optional = true }
 
+# Windows: the named pipe's and the state directory's owner-only ACLs (the 0600/0700 of Unix).
+[target.'cfg(windows)'.dependencies]
+sw-winacl.workspace = true
+
 [dev-dependencies]
 sw-testkit.workspace = true
 # The end-to-end scratchpad test runs the production node in-process.
@@ -51,6 +55,10 @@ sw-node.workspace = true
 async-trait.workspace = true
 # The wake-path test drives the shipped binary as Claude Code and Monitor would.
 tokio = { workspace = true, features = ["process"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+# tests/windows_owner_only.rs checks the pipe and the key files with the production rule.
+sw-winacl.workspace = true
 
 [lints]
 workspace = true

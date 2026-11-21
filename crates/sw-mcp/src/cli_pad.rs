@@ -53,11 +53,11 @@ fn print(v: &Value) -> Result<(), String> {
 }
 
 pub fn run(home: &Home, cmd: PadCmd) -> Result<ExitCode, String> {
-    let socket = home.socket();
+    let socket = home.ipc();
     match cmd {
         PadCmd::Wait { after, timeout_s } => {
             let v = call(
-                &socket,
+                socket,
                 &Request::PadWait {
                     after,
                     max_wait_s: timeout_s,
@@ -70,13 +70,13 @@ pub fn run(home: &Home, cmd: PadCmd) -> Result<ExitCode, String> {
             }
         }
         PadCmd::Members { project } => print(&call(
-            &socket,
+            socket,
             &Request::PadMembers { project },
             crate::daemon::pad_ask_timeout_s(),
         )?)?,
-        PadCmd::Inbox { project } => print(&call(&socket, &Request::PadInbox { project }, 0)?)?,
+        PadCmd::Inbox { project } => print(&call(socket, &Request::PadInbox { project }, 0)?)?,
         PadCmd::Ack { note_id, reply } => {
-            print(&call(&socket, &Request::PadAck { note_id, reply }, 0)?)?
+            print(&call(socket, &Request::PadAck { note_id, reply }, 0)?)?
         }
         PadCmd::Trust { id_fp, label } => {
             let words = crate::trust::fingerprint_words(&sw_crypto::sha3_256(id_fp.as_bytes()));
@@ -88,7 +88,7 @@ pub fn run(home: &Home, cmd: PadCmd) -> Result<ExitCode, String> {
                 return Err("not trusted".into());
             }
             print(&call(
-                &socket,
+                socket,
                 &Request::PadTrust {
                     id_fp,
                     label: Some(label),
@@ -96,11 +96,9 @@ pub fn run(home: &Home, cmd: PadCmd) -> Result<ExitCode, String> {
                 0,
             )?)?;
         }
-        PadCmd::Untrust { id_fp } => print(&call(
-            &socket,
-            &Request::PadTrust { id_fp, label: None },
-            0,
-        )?)?,
+        PadCmd::Untrust { id_fp } => {
+            print(&call(socket, &Request::PadTrust { id_fp, label: None }, 0)?)?
+        }
     }
     Ok(ExitCode::SUCCESS)
 }

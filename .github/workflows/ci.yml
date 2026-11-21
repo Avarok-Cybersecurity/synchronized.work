@@ -111,6 +111,29 @@ jobs:
       - name: Onboarding end to end against wrangler dev (provisioned with the KAT issuer)
         run: tools/onboard-e2e.sh
 
+  # sw-mcp natively on Windows (MSVC): the named pipe, the owner-only ACLs, the daemon end to end.
+  # OpenSSL is vendored as the release builds it (PowerShell's PATH finds Strawberry Perl).
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - name: clippy (sw-mcp, sw-winacl) on x86_64-pc-windows-msvc
+        run: cargo clippy -p sw-mcp -p sw-winacl --all-targets --locked --features sw-mcp/vendored-openssl -- -D warnings
+      - name: test sw-mcp and sw-winacl (pipe, ACLs, daemon round trip, in-process e2e)
+        run: cargo test -p sw-mcp -p sw-winacl --locked --features sw-mcp/vendored-openssl
+      # A real second account: the owner-only pipe refuses it, the same pipe open to Everyone
+      # admits it (tests/other_user.rs). The account and its random password live for this job.
+      - name: another local user cannot open the owner-only pipe
+        run: |
+          $pw = "Sw-" + [guid]::NewGuid().ToString("N") + "!a1"
+          Write-Output "::add-mask::$pw"
+          New-LocalUser -Name sw-other -Password (ConvertTo-SecureString $pw -AsPlainText -Force) | Out-Null
+          $env:SW_WINACL_OTHER_USER = "sw-other"
+          $env:SW_WINACL_OTHER_PASSWORD = $pw
+          cargo test -p sw-winacl --test other_user --locked -- --ignored
+
   gates:
     runs-on: ubuntu-latest
     steps:

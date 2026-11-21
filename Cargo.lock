@@ -4192,7 +4192,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "sw-bench"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "citadel-identity",
  "citadel_io",
@@ -4208,7 +4208,7 @@ dependencies = [
 
 [[package]]
 name = "sw-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ciborium",
  "data-encoding",
@@ -4222,7 +4222,7 @@ dependencies = [
 
 [[package]]
 name = "sw-crypto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm 0.11.1",
  "hkdf 0.13.0",
@@ -4237,7 +4237,7 @@ dependencies = [
 
 [[package]]
 name = "sw-graph"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
@@ -4245,7 +4245,7 @@ dependencies = [
 
 [[package]]
 name = "sw-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "ciborium",
@@ -4269,6 +4269,7 @@ dependencies = [
  "sw-node",
  "sw-protocol",
  "sw-testkit",
+ "sw-winacl",
  "tokio",
  "toml",
  "zeroize",
@@ -4276,7 +4277,7 @@ dependencies = [
 
 [[package]]
 name = "sw-model"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "sw-crypto",
  "unicode-normalization",
@@ -4286,7 +4287,7 @@ dependencies = [
 
 [[package]]
 name = "sw-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "ciborium",
@@ -4307,7 +4308,7 @@ dependencies = [
 
 [[package]]
 name = "sw-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ciborium",
  "data-encoding",
@@ -4321,7 +4322,7 @@ dependencies = [
 
 [[package]]
 name = "sw-release-sign"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "data-encoding",
  "getrandom 0.3.4",
@@ -4331,7 +4332,7 @@ dependencies = [
 
 [[package]]
 name = "sw-store-do"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "js-sys",
@@ -4345,7 +4346,7 @@ dependencies = [
 
 [[package]]
 name = "sw-testkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ciborium",
  "data-encoding",
@@ -4359,7 +4360,7 @@ dependencies = [
 
 [[package]]
 name = "sw-view-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ciborium",
  "data-encoding",
@@ -4374,8 +4375,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sw-winacl"
+version = "0.2.0"
+dependencies = [
+ "tokio",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "sw-worker"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "citadel_sdk",
@@ -5477,7 +5486,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ciborium",
  "serde_json",

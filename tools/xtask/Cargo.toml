@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-description = "CI gates for synchronized.work: file-length, sbio, conformance, plan, size, node-budget."
+description = "CI gates for synchronized.work: file-length, sbio, conformance, plan, size, node-budget, home-paths."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

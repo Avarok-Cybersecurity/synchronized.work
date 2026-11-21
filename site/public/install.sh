@@ -14,8 +14,12 @@ case "$(uname -s)/$(uname -m)" in
   Darwin/arm64) asset=sw-mcp-macos-arm64.tar.gz ;;
   Darwin/x86_64) asset=sw-mcp-macos-x64.tar.gz ;;
   Linux/x86_64) asset=sw-mcp-linux-x64.tar.gz ;;
+  MINGW*|MSYS*|CYGWIN*)
+    echo "On Windows, install the native build from PowerShell: irm https://synchronized.work/install.ps1 | iex" >&2
+    exit 1
+    ;;
   *)
-    echo "sw-mcp has no build for $(uname -s) $(uname -m) yet. On Windows, run this inside WSL 2." >&2
+    echo "sw-mcp has no build for $(uname -s) $(uname -m) yet." >&2
     exit 1
     ;;
 esac

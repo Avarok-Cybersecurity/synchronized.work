@@ -111,7 +111,7 @@ pub fn signed(m: &[u8]) -> (u8, Body) {
 }
 
 pub async fn ask(home: &Home, r: Request) -> Json {
-    call_async(home.socket(), r, 0).await.unwrap()
+    call_async(home.ipc().clone(), r, 0).await.unwrap()
 }
 
 /// The next message of `typ` from the device, skipping others (SUBSCRIBE, progress).

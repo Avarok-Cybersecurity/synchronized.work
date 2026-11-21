@@ -208,7 +208,7 @@ impl Daemon {
 
     pub async fn run(mut self) -> Result<(), String> {
         let (ipc_tx, mut ipc_rx) = mpsc::unbounded_channel::<(Request, oneshot::Sender<Reply>)>();
-        listen::bind(&self.home.socket(), ipc_tx)?;
+        listen::bind(self.home.ipc(), ipc_tx)?;
         self.ensure_session()?;
         let mut tick = tokio::time::interval(Duration::from_secs(1));
         loop {

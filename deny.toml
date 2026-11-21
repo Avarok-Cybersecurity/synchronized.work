@@ -6,7 +6,7 @@
 all-features = false
 # The targets this workspace builds for; a dependency only some other target pulls in (the
 # SDK's WASI-only tokio fork) is not part of anything shipped from here.
-targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "wasm32-unknown-unknown"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "x86_64-pc-windows-msvc", "wasm32-unknown-unknown"]
 
 [advisories]
 version = 2
