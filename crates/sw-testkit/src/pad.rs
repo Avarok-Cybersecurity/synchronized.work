@@ -33,50 +33,51 @@ impl PadDevice {
     /// A Device of the Person `person_seed`, enrolled at `now_ms` with an assertion valid
     /// for an hour after it.
     pub fn new(person_seed: u8, device_seed: u8, cid: Cid, now_ms: u64) -> Self {
-        let identity = StandInIdentity::from_seed(&[person_seed; 32]);
-        let sign = SigningKey::from_seed(&[device_seed; 32]);
-        let kem = KemSecretKey::from_seed(&[device_seed; 64]);
+        let mut device = Self {
+            identity: StandInIdentity::from_seed(&[person_seed; 32]),
+            sign: SigningKey::from_seed(&[device_seed; 32]),
+            kem: KemSecretKey::from_seed(&[device_seed; 64]),
+            cid,
+            proof: Vec::new(),
+        };
+        device.proof = device.enrol_at(now_ms, 255 - device_seed);
+        device
+    }
+
+    /// This Device's ENROL by assertion as signed at `now_ms` (a re-enrol uses a new nonce).
+    pub fn enrol_at(&self, now_ms: u64, nonce: u8) -> Vec<u8> {
+        let kid = BASE64URL_NOPAD.encode(&kid_of(self.sign.public_key()));
         let claims = SignInClaims {
-            identity: identity.public_key().to_vec(),
-            device: format!(
-                "dev{device_seed}#{}",
-                BASE64URL_NOPAD.encode(&kid_of(sign.public_key()))
-            ),
+            identity: self.identity.public_key().to_vec(),
+            device: format!("dev#{kid}"),
             aud: "sw-mcp".into(),
             exp_s: now_ms / 1000 + 3600,
         };
-        let assertion = sign_assertion(&issuer(), &claims, &[device_seed; 32]);
+        let assertion = sign_assertion(&issuer(), &claims, &[nonce; 32]);
         let body = Body {
-            iss: identity.id_fp(),
-            from: cid,
+            iss: self.identity.id_fp(),
+            from: self.cid,
             aud: Audience::Node,
             iat: now_ms,
             exp: now_ms + 60_000,
-            nonce: [255 - device_seed; 16],
+            nonce: [nonce; 16],
             seq: now_ms,
             payload: Payload::Enrol(Enrol {
                 op: EnrolOp::Enrol,
                 epoch: 1,
-                endpoint_cid: Some(cid),
+                endpoint_cid: Some(self.cid),
                 kind: Some(EndpointKind::Device),
                 pubkeys: Some(PubKeys {
-                    sign: Bytes(sign.public_key().to_vec()),
-                    seal: Some(Bytes(kem.encapsulation_key().to_vec())),
+                    sign: Bytes(self.sign.public_key().to_vec()),
+                    seal: Some(Bytes(self.kem.encapsulation_key().to_vec())),
                 }),
                 kid: None,
                 assertion: Some(Bytes(assertion)),
             }),
         };
-        let proof = SwMessage::signed(&body, &sign)
+        SwMessage::signed(&body, &self.sign)
             .and_then(|m| m.to_bytes())
-            .expect("an ENROL encodes");
-        Self {
-            identity,
-            sign,
-            kem,
-            cid,
-            proof,
-        }
+            .expect("an ENROL encodes")
     }
 
     pub fn id_fp(&self) -> IdFp {

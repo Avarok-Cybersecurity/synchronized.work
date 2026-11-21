@@ -96,7 +96,7 @@ impl NodeCore {
         same.then_some(()).ok_or(PadRefusal::BadProof)
     }
 
-    fn pad_retention(&self, project: &str) -> Result<u64, PadRefusal> {
+    pub(super) fn pad_retention(&self, project: &str) -> Result<u64, PadRefusal> {
         self.pad
             .projects
             .get(project)

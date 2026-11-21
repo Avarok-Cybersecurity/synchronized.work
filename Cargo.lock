@@ -4237,6 +4237,7 @@ dependencies = [
 name = "sw-mcp"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "ciborium",
  "citadel-identity",
  "citadel_sdk",
@@ -4254,6 +4255,7 @@ dependencies = [
  "sw-client",
  "sw-crypto",
  "sw-model",
+ "sw-node",
  "sw-protocol",
  "sw-testkit",
  "tokio",

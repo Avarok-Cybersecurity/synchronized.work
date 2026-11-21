@@ -17,6 +17,12 @@ pub const MAX_WAIT_S: u64 = 25;
 
 impl Daemon {
     pub(crate) fn handle(&mut self, request: Request, reply: oneshot::Sender<Reply>) {
+        if matches!(
+            request,
+            Request::PadWait { .. } | Request::PadPost { .. } | Request::PadMembers { .. }
+        ) {
+            return self.pad_deferred(request, reply);
+        }
         if let Request::AwaitSignal {
             agent_id,
             max_wait_s,
@@ -217,6 +223,13 @@ impl Daemon {
                 Ok(json!({ "refused": signal_id }))
             }
             Request::Reload => self.reload(),
+            r @ (Request::PadInbox { .. }
+            | Request::PadAck { .. }
+            | Request::PadPolicy { .. }
+            | Request::PadTrust { .. }) => self.pad_answer(r),
+            Request::PadWait { .. } | Request::PadPost { .. } | Request::PadMembers { .. } => {
+                Err("answered by handle".into())
+            }
         }
     }
 }

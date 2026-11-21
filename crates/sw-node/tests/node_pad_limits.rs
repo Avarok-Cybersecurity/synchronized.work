@@ -150,3 +150,21 @@ fn strangers_and_misaddressed_keys_are_refused() {
         vec![(101, false, Some("BadRecipients".into()))]
     );
 }
+
+#[test]
+fn an_enrolled_device_can_re_enrol_to_refresh_its_proof() {
+    let mut w = Pad::standard();
+    let key = "proof/00000000000000000101";
+    assert_eq!(
+        w.stored.get(key),
+        Some(&w.a.proof),
+        "control: the first proof"
+    );
+    let again = w.a.enrol_at(NOW + 1000, 200);
+    w.raw(101, &again).unwrap();
+    assert_eq!(
+        w.stored.get(key),
+        Some(&again),
+        "a known Device re-enrols by assertion"
+    );
+}

@@ -96,6 +96,7 @@ impl NodeCore {
         let answer = PadDirectory {
             project: project.to_owned(),
             members: Some(list),
+            retention_ms: Some(self.pad_retention(project)?),
         };
         let bytes = SwMessage::Unsigned(Payload::PadDirectory(answer)).to_bytes()?;
         Ok(vec![Effect::Send { to: cid, bytes }])

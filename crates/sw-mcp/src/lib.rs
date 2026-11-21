@@ -6,6 +6,7 @@
 
 pub mod adapters;
 pub mod cli;
+pub mod cli_pad;
 pub mod config;
 pub mod daemon;
 pub mod frame;
@@ -16,6 +17,7 @@ pub mod ipc;
 pub mod keys;
 pub mod logging;
 pub mod outbound;
+pub mod pad;
 pub mod serve;
 pub mod session;
 pub mod signin;

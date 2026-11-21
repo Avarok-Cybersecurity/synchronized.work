@@ -16,6 +16,11 @@ use sw_testkit::LabelledEntropy;
 use super::{HOUR_MS, SIGN_IN_KAT, node};
 
 pub struct PinOnly(Vec<u8>);
+impl PinOnly {
+    pub fn new(doc: Vec<u8>) -> Self {
+        Self(doc)
+    }
+}
 impl IssuerPort for PinOnly {
     async fn well_known(&self) -> Result<Vec<u8>, String> {
         Ok(self.0.clone())

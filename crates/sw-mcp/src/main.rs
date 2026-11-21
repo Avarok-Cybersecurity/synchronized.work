@@ -25,7 +25,17 @@ enum Command {
     /// Run the Device: the Citadel session to the node, the gate and the socket.
     Daemon,
     /// Serve MCP on stdio to one coding agent.
-    Serve,
+    Serve {
+        /// Push scratchpad events to Claude Code as channel notifications (start Claude Code
+        /// with `--dangerously-load-development-channels server:<this server's name>`).
+        #[arg(long)]
+        channel: bool,
+    },
+    /// The developer scratchpad: wait for events, read the inbox, ack, trust senders.
+    Pad {
+        #[command(subcommand)]
+        cmd: sw_mcp::cli_pad::PadCmd,
+    },
     /// A Claude Code hook (`stop` or `pre-tool-use`), reading the hook JSON on stdin.
     Hook {
         #[arg(value_parser = ["stop", "pre-tool-use"])]
@@ -71,7 +81,16 @@ fn main() -> ExitCode {
     };
     let result = match args.command {
         Command::Daemon => run_async(daemon(home, config)),
-        Command::Serve => run_async(sw_mcp::serve::run(home, config)),
+        Command::Serve { channel } => run_async(sw_mcp::serve::run(home, config, channel)),
+        Command::Pad { cmd } => {
+            return match sw_mcp::cli_pad::run(&home, cmd) {
+                Ok(code) => code,
+                Err(e) => {
+                    eprintln!("sw-mcp: {e}");
+                    ExitCode::FAILURE
+                }
+            };
+        }
         Command::Hook { event } => {
             let kind = if event == "stop" {
                 HookKind::Stop

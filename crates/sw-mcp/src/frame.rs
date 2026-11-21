@@ -41,7 +41,12 @@ struct Feed<'a> {
 /// Removes ANSI escape sequences (CSI `ESC [ … final`, OSC `ESC ] … BEL|ESC \`, two-byte
 /// `ESC x`) and every other control character, then bounds the text at a character boundary.
 pub fn sanitize(text: &str) -> String {
-    let mut out = String::with_capacity(text.len().min(MAX_ITEM_BYTES));
+    sanitize_bounded(text, MAX_ITEM_BYTES)
+}
+
+/// [`sanitize`] with its own byte bound (a scratchpad note is longer than a feed item).
+pub fn sanitize_bounded(text: &str, max_bytes: usize) -> String {
+    let mut out = String::with_capacity(text.len().min(max_bytes));
     let mut chars = text.chars().peekable();
     while let Some(c) = chars.next() {
         if c == '\u{1b}' {
@@ -67,7 +72,7 @@ pub fn sanitize(text: &str) -> String {
         if c.is_control() {
             continue;
         }
-        if out.len() + c.len_utf8() > MAX_ITEM_BYTES {
+        if out.len() + c.len_utf8() > max_bytes {
             break;
         }
         out.push(c);

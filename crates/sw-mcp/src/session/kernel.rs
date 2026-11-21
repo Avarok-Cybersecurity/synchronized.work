@@ -144,7 +144,8 @@ impl NetKernel<StackedRatchet> for SessionKernel {
                 reason: reason.clone(),
             });
             if self.inbound.is_closed() {
-                return Ok(());
+                // The daemon is gone: leave the node now rather than hold a session open.
+                return remote.shutdown().await;
             }
             tokio::time::sleep(self.settings.reconnect_delay).await;
         }

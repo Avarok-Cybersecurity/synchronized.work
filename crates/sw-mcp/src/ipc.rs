@@ -84,6 +84,38 @@ pub enum Request {
     },
     /// The allowlist or the stored assertion changed on disk; read them again.
     Reload,
+    /// Scratchpad: leave a note for some members (`to`: id_fps or displays) or, with `to`
+    /// absent, for every member but this Person.
+    PadPost {
+        project: String,
+        to: Option<Vec<String>>,
+        body: String,
+        refs: Vec<String>,
+    },
+    PadMembers {
+        project: String,
+    },
+    PadInbox {
+        project: Option<String>,
+    },
+    PadAck {
+        note_id: String,
+        reply: Option<String>,
+    },
+    /// The next scratchpad event after `after`, waiting up to `max_wait_s`.
+    PadWait {
+        after: u64,
+        max_wait_s: u64,
+    },
+    PadPolicy {
+        project: String,
+        retention_hours: u64,
+    },
+    /// Trust a sender's hand-offs (`label` given) or stop trusting them (`label` absent).
+    PadTrust {
+        id_fp: String,
+        label: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

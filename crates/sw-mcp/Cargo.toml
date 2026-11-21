@@ -39,6 +39,9 @@ log.workspace = true
 
 [dev-dependencies]
 sw-testkit.workspace = true
+# The end-to-end scratchpad test runs the production node in-process.
+sw-node.workspace = true
+async-trait.workspace = true
 
 [lints]
 workspace = true

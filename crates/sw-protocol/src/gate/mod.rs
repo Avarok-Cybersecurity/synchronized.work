@@ -73,7 +73,14 @@ pub fn verify(
         return Err(Refusal::UnknownAlg);
     }
     let message = signed_message(&signed.body.0);
-    let (body, sign_in) = match directory.key(&signed.kid) {
+    // An ENROL by assertion always takes the assertion path, even from a key the directory
+    // already holds: re-enrolling a Device refreshes the proof its scratchpad notes carry.
+    let by_assertion = matches!(
+        Body::from_bytes(&signed.body.0).map(|b| b.payload),
+        Ok(Payload::Enrol(ref e)) if e.assertion.is_some()
+    );
+    let known = directory.key(&signed.kid).filter(|_| !by_assertion);
+    let (body, sign_in) = match known {
         Some(entry) => {
             match entry.role {
                 KeyRole::Identity => identity

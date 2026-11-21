@@ -60,8 +60,13 @@ async fn serve_one(stream: UnixStream, to_daemon: Inbound) -> Result<(), String>
             to_daemon
                 .send((request, tx))
                 .map_err(|_| "the daemon stopped".to_owned())?;
-            rx.await
-                .map_err(|_| "the daemon dropped the request".to_owned())?
+            // A client that hangs up while it waits drops `rx`, so the daemon sees the reply
+            // channel closed and never hands that client an event it cannot receive.
+            let mut probe = [0u8; 1];
+            tokio::select! {
+                answer = rx => answer.map_err(|_| "the daemon dropped the request".to_owned())?,
+                _ = reader.read(&mut probe) => return Ok(()),
+            }
         }
         Err(e) => Reply::Error(format!("not a request: {e}")),
     };

@@ -102,6 +102,7 @@ fn the_directory_answers_members_with_their_proofs() {
     let ask = SwMessage::Unsigned(Payload::PadDirectory(PadDirectory {
         project: "p".into(),
         members: None,
+        retention_ms: None,
     }));
     let sent = w.raw(102, &ask.to_bytes().unwrap()).unwrap();
     let SwMessage::Unsigned(Payload::PadDirectory(d)) = SwMessage::from_bytes(&sent[0].1).unwrap()

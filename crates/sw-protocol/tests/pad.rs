@@ -4,6 +4,9 @@
 //! gate, which verifies a relayed note against the sender's own proof. Each refusal has a
 //! control: the untouched message passes.
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_test::wasm_bindgen_test as test;
+
 use sw_crypto::SigningKey;
 use sw_protocol::gate::{AssertionRefusal, BoundDevice, Refusal, verify_pad};
 use sw_protocol::pad::{PadOpenError, Recipient, open_text, seal_text};

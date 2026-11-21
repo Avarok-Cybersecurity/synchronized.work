@@ -42,7 +42,7 @@ pub enum GateCmd {
     Refuse { signal_id: String },
 }
 
-fn confirm(prompt: &str) -> Result<bool, String> {
+pub(crate) fn confirm(prompt: &str) -> Result<bool, String> {
     print!("{prompt} Type yes to confirm: ");
     std::io::stdout().flush().map_err(|e| e.to_string())?;
     let mut line = String::new();

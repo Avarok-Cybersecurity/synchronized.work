@@ -159,10 +159,12 @@ wire_text! {
 }
 
 wire_text! {
-    /// 21 `PAD_DIRECTORY`, unsigned: an Endpoint asks (`members` absent), the node answers.
+    /// 21 `PAD_DIRECTORY`, unsigned: an Endpoint asks (`members` absent), the node answers
+    /// with the members and the project's retention, which bounds a new note's `exp - iat`.
     pub struct PadDirectory {
         project: String,
         members: Option<Vec<PadMember>>,
+        retention_ms: Option<u64>,
     }
 }
 

@@ -199,6 +199,10 @@ impl Daemon {
             self.flush_progress(now);
         }
         self.wake_waiters();
+        if self.pad.prune(now) {
+            self.save_pad();
+        }
+        self.wake_pad();
     }
 
     fn flush_progress(&mut self, now: u64) {
