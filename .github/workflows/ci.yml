@@ -106,6 +106,10 @@ jobs:
         env:
           RUSTFLAGS: -D warnings --cfg getrandom_backend="wasm_js"
         run: npm run test:e2e --prefix site
+      # Two daemons and a stranger against the real Worker: create a project, invite, spend the
+      # invite, admit, exchange a note and an ack; a spent invite and a refused person get nothing.
+      - name: Onboarding end to end against wrangler dev (provisioned with the KAT issuer)
+        run: tools/onboard-e2e.sh
 
   gates:
     runs-on: ubuntu-latest

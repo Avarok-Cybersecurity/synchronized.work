@@ -54,12 +54,17 @@ impl NodeCore {
             verifier,
             now_ms,
         )?;
+        let receipted = self.receipt_project(&verified.body.payload);
         let mut effects = match self.signed(cid, &verified, bytes, now_ms) {
             Ok(effects) => effects,
             Err(NodeRefusal::Pad(r)) => return self.pad_refused(&verified, r),
             Err(e) => return Err(e),
         };
         self.replay = scratch;
+        if let Some(project) = receipted {
+            let typ = verified.body.payload.typ();
+            effects.push(Self::stored_receipt(cid, project, verified.signal_id, typ)?);
+        }
         effects.push(Effect::Put {
             key: seq_key(&verified.kid),
             value: verified.body.seq.to_be_bytes().to_vec(),
@@ -74,7 +79,9 @@ impl NodeCore {
                 Ok(Vec::new())
             }
             Payload::PadDirectory(d) if d.members.is_none() => self.pad_directory(cid, &d.project),
+            Payload::JoinPending(j) if j.requests.is_none() => self.join_pending(cid, j.project),
             p @ (Payload::Presence(_)
+            | Payload::JoinPending(_)
             | Payload::Event(_)
             | Payload::Notify(_)
             | Payload::PadDirectory(_)
@@ -117,7 +124,8 @@ impl NodeCore {
                     dir.person(p).is_some()
                 })?
             }
-            Payload::JoinRequest(r) => self.tree.join_request(iss, r, v.signal_id, now_ms)?,
+            Payload::JoinRequest(r) => return self.join(iss, r, v.signal_id, now_ms),
+            Payload::Invite(i) => return self.invite(v, i, now_ms),
             Payload::JoinAnswer(a) => self.tree.join_answer(iss, a, now_ms)?,
             Payload::StatusUpdate(s) => self.tree.status(iss, cid, s, now_ms)?,
             Payload::Prompt(_) | Payload::Control(_) => {
@@ -192,7 +200,11 @@ impl NodeCore {
         Ok(vec![Self::pad_receipt(v.body.from, project, v, Some(r))?])
     }
 
-    fn apply_change(&mut self, change: Change, now_ms: u64) -> Result<Vec<Effect>, NodeRefusal> {
+    pub(super) fn apply_change(
+        &mut self,
+        change: Change,
+        now_ms: u64,
+    ) -> Result<Vec<Effect>, NodeRefusal> {
         let mut effects = Vec::new();
         for id in &change.stored {
             if let Some(task) = self.tree.get(id) {

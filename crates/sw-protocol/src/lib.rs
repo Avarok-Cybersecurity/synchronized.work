@@ -15,6 +15,7 @@ pub mod body;
 pub mod cbor;
 mod error;
 pub mod gate;
+pub mod invite;
 mod model_wire;
 pub mod p2p;
 pub mod pad;

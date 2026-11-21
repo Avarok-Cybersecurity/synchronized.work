@@ -2,7 +2,7 @@
 //! through `sw_model::tier::apply`, the one tier machine; this module only maps wire fields to
 //! its events and keeps the tree's own invariants (parents exist, ids unique, caps).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use sw_model::tier::{Actor, Coop, Tier, TierEvent, TierName, apply};
 use sw_model::{IdFp, Role, Status};
@@ -43,6 +43,31 @@ impl Tree {
         self.tasks
             .get(&task.project)
             .map_or_else(|| task.coop.owner.clone(), |root| root.coop.owner.clone())
+    }
+
+    /// A project's members: its owner and every co-worker admitted to one of its Tasks
+    /// (admission is the owner's decision). `None` if `project` is not a root Task.
+    pub fn members(&self, project: &str) -> Option<BTreeSet<IdFp>> {
+        let root = self.tasks.get(project)?;
+        if root.parent.is_some() {
+            return None;
+        }
+        let mut out = BTreeSet::from([self.project_owner(root)]);
+        for task in self.tasks.values().filter(|t| t.project == project) {
+            out.extend(task.coworkers());
+        }
+        Some(out)
+    }
+
+    /// A field update signed by `iss` that names no new owner.
+    pub(super) fn update_fields(
+        &mut self,
+        iss: &IdFp,
+        id: &str,
+        f: &TaskFields,
+        now_ms: u64,
+    ) -> Result<Change, NodeRefusal> {
+        self.update(iss, id, f, now_ms, &|_| false)
     }
 
     pub(super) fn actor(&self, task: &TaskState, iss: &IdFp) -> Actor {
@@ -105,6 +130,10 @@ impl Tree {
                 .clone(),
             None => id.to_owned(),
         };
+        // Only the project's owner and admitted members write under it.
+        if f.parent.is_some() && !self.members(&project).is_some_and(|m| m.contains(iss)) {
+            return Err(NodeRefusal::NotAMember);
+        }
         let task = TaskState {
             id: id.to_owned(),
             project,

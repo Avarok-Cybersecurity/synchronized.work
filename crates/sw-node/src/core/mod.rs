@@ -9,9 +9,11 @@ mod directory;
 mod dispatch;
 mod enrol;
 mod inbox;
+mod invite;
 pub mod load;
 mod notify;
 mod pad;
+mod receipt;
 mod refusal;
 mod significant;
 mod task;
@@ -19,8 +21,10 @@ mod tree;
 
 pub use codec::{task_from_bytes, task_to_bytes};
 pub use directory::Directory;
+pub use invite::invite_key;
 pub use notify::{DEDUP_WINDOW_MS, event_id};
 pub use pad::PadRefusal;
+pub use receipt::RECEIPTED;
 pub use refusal::NodeRefusal;
 pub use significant::{Kind, Significant};
 pub use task::{AgentState, TaskState};
@@ -71,6 +75,7 @@ pub struct NodeCore {
     inbox: Inbox,
     notifier: Notifier,
     pad: pad::ledger::Ledger,
+    invites: invite::Invites,
     online: BTreeSet<Cid>,
     /// Sessions that sent `HELLO`, the first message of every session.
     greeted: BTreeSet<Cid>,
@@ -86,6 +91,7 @@ impl NodeCore {
             inbox: Inbox::default(),
             notifier: Notifier::default(),
             pad: pad::ledger::Ledger::default(),
+            invites: invite::Invites::default(),
             online: BTreeSet::new(),
             greeted: BTreeSet::new(),
         }

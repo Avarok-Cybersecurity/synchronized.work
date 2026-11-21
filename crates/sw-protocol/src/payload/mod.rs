@@ -1,13 +1,15 @@
-//! The message types and their payloads: 1–17 per the sw-wire contract §3, and the
-//! developer scratchpad's 18–22 ([`pad`]).
+//! The message types and their payloads: 1–17 per the sw-wire contract §3, the developer
+//! scratchpad's 18–22 ([`pad`]) and joining by invitation, 23–24 ([`invite`]).
 
 mod coop;
+pub mod invite;
 mod node;
 pub mod pad;
 mod signal;
 mod status;
 
 pub use coop::{JoinAnswer, JoinRequest, Suggestion, TaskFields, TaskOp, TaskWrite};
+pub use invite::{Invite, JoinPending, PendingJoin};
 pub use node::{
     Enrol, EnrolOp, Event, EventBody, Link, LinkOp, Notify, PubKeys, Subscribe, SubscribeOp,
 };
@@ -87,6 +89,8 @@ pub enum Payload {
     PadPolicy(PadPolicy),
     PadDirectory(PadDirectory),
     PadReceipt(PadReceipt),
+    Invite(Invite),
+    JoinPending(JoinPending),
 }
 
 macro_rules! dispatch {
@@ -119,16 +123,18 @@ dispatch! {
     15 => Subscribe(Subscribe), 16 => Link(Link), 17 => ProgressTail(ProgressTail),
     18 => PadNote(PadNote), 19 => PadAck(PadAck), 20 => PadPolicy(PadPolicy),
     21 => PadDirectory(PadDirectory), 22 => PadReceipt(PadReceipt),
+    23 => Invite(Invite), 24 => JoinPending(JoinPending),
 }
 
 impl Payload {
-    /// `None` for what travels unsigned in slot 2 (1, 7, 13, 14, 15, `LINK_REDEEM`);
+    /// `None` for what travels unsigned in slot 2 (1, 7, 13, 14, 15, 21, 22, 24, `LINK_REDEEM`);
     /// otherwise the key that must sign. A signed message of an unsigned type and an
     /// unsigned message of a signed type are both refused.
     pub fn signer(&self) -> Option<SignerRole> {
         match self {
             Self::Hello(_) | Self::Presence(_) | Self::Event(_) | Self::Notify(_) => None,
             Self::Subscribe(_) | Self::PadDirectory(_) | Self::PadReceipt(_) => None,
+            Self::JoinPending(_) => None,
             Self::Link(link) if link.op == LinkOp::Redeem => None,
             Self::Enrol(e) if e.assertion.is_some() => Some(SignerRole::EnrollingEndpoint),
             Self::Enrol(_) => Some(SignerRole::Identity),
@@ -136,10 +142,11 @@ impl Payload {
                 Some(SignerRole::Device)
             }
             Self::ProgressTail(_) | Self::PadNote(_) | Self::PadAck(_) => Some(SignerRole::Device),
-            Self::PadPolicy(_) => Some(SignerRole::Endpoint),
-            Self::Prompt(_) | Self::Control(_) | Self::JoinAnswer(_) => {
-                Some(SignerRole::Controller)
-            }
+            Self::PadPolicy(_) | Self::Invite(_) => Some(SignerRole::Endpoint),
+            Self::Prompt(_) | Self::Control(_) => Some(SignerRole::Controller),
+            // An owner answers from whichever Endpoint they are at: the answer is the same
+            // signed decision as a `TASK_WRITE` tier change, and `sw-mcp` is a Device.
+            Self::JoinAnswer(_) => Some(SignerRole::Endpoint),
             Self::JoinRequest(_) | Self::TaskWrite(_) | Self::Suggestion(_) | Self::Link(_) => {
                 Some(SignerRole::Endpoint)
             }

@@ -23,6 +23,9 @@ impl Daemon {
         ) {
             return self.pad_deferred(request, reply);
         }
+        if request.waits_for_the_node() {
+            return self.onboard_deferred(request, reply);
+        }
         if let Request::AwaitSignal {
             agent_id,
             max_wait_s,
@@ -227,9 +230,13 @@ impl Daemon {
             | Request::PadAck { .. }
             | Request::PadPolicy { .. }
             | Request::PadTrust { .. }) => self.pad_answer(r),
-            Request::PadWait { .. } | Request::PadPost { .. } | Request::PadMembers { .. } => {
-                Err("answered by handle".into())
+            Request::ProjectList => Ok(self.project_list()),
+            r
+            @ (Request::PadWait { .. } | Request::PadPost { .. } | Request::PadMembers { .. }) => {
+                Err(format!("answered by handle: {r:?}"))
             }
+            r if r.waits_for_the_node() => Err("answered by handle".into()),
+            r => Err(format!("not a daemon request: {r:?}")),
         }
     }
 }

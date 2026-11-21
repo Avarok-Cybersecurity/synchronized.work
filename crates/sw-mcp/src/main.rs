@@ -6,6 +6,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use sw_mcp::cli::{GateCmd, TrustCmd};
+use sw_mcp::cli_onboard::{InviteCmd, JoinCmd, ProjectCmd};
 use sw_mcp::config::{CONFIG_EXIT, Config, KeyStoreKind};
 use sw_mcp::home::Home;
 use sw_mcp::hook::HookKind;
@@ -53,6 +54,23 @@ enum Command {
     },
     /// Remove trusted Controllers whose kid starts with this prefix (8+ hex characters).
     Revoke { kid_prefix: String },
+    /// Sign this machine in with your Citadel identity (work.avarok.net), in the browser.
+    SignIn,
+    /// Create a project, or list the ones this device knows.
+    Project {
+        #[command(subcommand)]
+        cmd: ProjectCmd,
+    },
+    /// Make an invite for one person, or spend one you were sent.
+    Invite {
+        #[command(subcommand)]
+        cmd: InviteCmd,
+    },
+    /// The join requests waiting for your answer; accept or refuse them.
+    Join {
+        #[command(subcommand)]
+        cmd: JoinCmd,
+    },
 }
 
 fn load(home: &Home) -> Result<Config, ExitCode> {
@@ -107,6 +125,10 @@ fn main() -> ExitCode {
         Command::Gate { cmd } => sw_mcp::cli::gate(&home, cmd),
         Command::Trust { cmd } => sw_mcp::cli::trust(&home, &config, cmd),
         Command::Revoke { kid_prefix } => sw_mcp::cli::revoke(&home, &kid_prefix),
+        Command::SignIn => run_async(sw_mcp::cli_onboard::sign_in(home, config)),
+        Command::Project { cmd } => sw_mcp::cli_onboard::project(&home, cmd),
+        Command::Invite { cmd } => sw_mcp::cli_onboard::invite(&home, cmd),
+        Command::Join { cmd } => sw_mcp::cli_onboard::join(&home, cmd),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

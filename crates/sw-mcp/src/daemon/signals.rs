@@ -203,6 +203,7 @@ impl Daemon {
             self.save_pad();
         }
         self.wake_pad();
+        self.expire_onboard();
     }
 
     fn flush_progress(&mut self, now: u64) {

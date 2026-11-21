@@ -77,11 +77,19 @@ impl Pad {
         w.send(1, task(TaskOp::Create, create), 60_000).unwrap();
         w.send(1, task(TaskOp::Update, open), 60_000).unwrap();
         for who in [2, 3] {
+            let token = [who; 32];
+            let invite = Payload::Invite(Invite {
+                project: "p".into(),
+                token_hash: sw_protocol::invite::token_hash(&token),
+                exp: NOW + HOUR,
+            });
+            w.send(1, invite, 60_000).unwrap();
             let join = Payload::JoinRequest(JoinRequest {
                 task_id: "p".into(),
                 note: "joining".into(),
                 readiness: sw_model::readiness::Readiness::from_permille(1000).unwrap(),
                 agent_id: None,
+                invite: Some(token),
             });
             w.send(who, join, 60_000).unwrap();
         }

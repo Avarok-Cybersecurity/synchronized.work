@@ -5,6 +5,8 @@ mod admin;
 mod inbound;
 mod inbox;
 mod listen;
+mod onboard;
+mod onboard_in;
 mod pad;
 mod pad_in;
 mod pad_post;
@@ -86,6 +88,8 @@ pub struct Daemon {
     pub(crate) pad: crate::pad::state::PadState,
     pub(crate) pad_waiters: Vec<pad::PadWaiter>,
     pub(crate) pad_asks: Vec<pad::PadAsk>,
+    pub(crate) onboard: Vec<onboard::OnboardWait>,
+    pub(crate) projects: crate::projects::Projects,
     pub(crate) entropy: OsEntropy,
 }
 
@@ -114,6 +118,7 @@ impl Daemon {
         let inbox = Inbox::load(home.inbox())?;
         let gate = DeviceGate::new(GateLimits::from_config(&config), log);
         let pad_state = pad::load_state(&home)?;
+        let projects = onboard_in::load_projects(&home)?;
         let mut daemon = Self {
             home,
             config,
@@ -136,6 +141,8 @@ impl Daemon {
             pad: pad_state,
             pad_waiters: Vec::new(),
             pad_asks: Vec::new(),
+            onboard: Vec::new(),
+            projects,
             entropy: OsEntropy,
         };
         daemon.load_sign_in();

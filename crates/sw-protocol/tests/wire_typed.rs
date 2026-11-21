@@ -94,6 +94,7 @@ fn readiness_is_a_permille_uint() {
         note: "n".into(),
         readiness: r,
         agent_id: None,
+        invite: None,
     };
     let half = Readiness::from_permille(500).unwrap();
     assert_eq!(

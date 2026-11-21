@@ -45,5 +45,6 @@ pub fn join(id: &str, readiness: Readiness) -> Payload {
         note: "let me help".into(),
         readiness,
         agent_id: None,
+        invite: None,
     })
 }

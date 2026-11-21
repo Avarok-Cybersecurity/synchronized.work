@@ -1,0 +1,20 @@
+# ~/.synchronized/config.toml for synchronized.work. Every field is required (sw-mcp has no
+# built-in defaults); install.sh copies this file and sets device_slug from the hostname.
+server = "wss://synchronized.work/citadel"
+# This machine's name in your Device's account: lowercase letters, digits and '-'.
+device_slug = "DEVICE_SLUG"
+sign_in_issuer = "work.avarok.net"
+# A newly trusted Controller's prompts wait for your approval for this long (design D4).
+approval_mode_new_controller_hours = 24
+ack_timeout_s = 600
+reconnect_delay_s = 5
+stun_servers = ["stun.cloudflare.com:3478", "stun1.l.google.com:19302", "stun4.l.google.com:19302"]
+log_level = "info"
+harness = "stop_hook"
+keystore = "file"
+
+[rate]
+# Signals per Controller key per minute, signals pending, refusals before a pause (D4).
+per_kid_per_min = 10
+pending_max = 50
+refusals_per_min_before_pause = 3

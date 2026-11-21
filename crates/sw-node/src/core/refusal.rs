@@ -25,6 +25,16 @@ pub enum NodeRefusal {
     NoSuchRequest,
     HasChildren,
     NotAWorker,
+    /// Writing under a project its signer is neither the owner nor an admitted member of.
+    NotAMember,
+    /// An invite names a Task that is not a project's root.
+    NotAProject,
+    /// A request to join a project spent no invite.
+    NeedsInvite,
+    /// The invite is unknown, spent or expired.
+    InviteInvalid,
+    /// An invite's `exp` is past, or further away than `invite_limits::MAX_LIFETIME_MS`.
+    InviteLifetime,
     /// The relayed signal's audience is not an enrolled Endpoint of the kind it must reach.
     NoSuchRecipient,
     InboxFull,

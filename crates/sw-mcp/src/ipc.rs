@@ -116,6 +116,45 @@ pub enum Request {
         id_fp: String,
         label: Option<String>,
     },
+    /// Create a project owned by this Person; its scratchpad starts with the 7-day policy.
+    ProjectCreate {
+        name: String,
+    },
+    /// The projects this Device created, joined or asked to join.
+    ProjectList,
+    /// A one-time invite code for one person, live for `valid_hours` (1..=168).
+    InviteCreate {
+        project: String,
+        valid_hours: u64,
+    },
+    /// Spend an invite code: a join request the project's owner answers.
+    InviteRedeem {
+        code: String,
+        note: String,
+    },
+    /// Join requests waiting on this Person's answer, in one project or in all.
+    JoinRequests {
+        project: Option<String>,
+    },
+    JoinAnswer {
+        request_id: String,
+        accept: bool,
+        reason: Option<String>,
+    },
+}
+
+impl Request {
+    /// Answered when the node does (a receipt or an answer), not at once.
+    pub fn waits_for_the_node(&self) -> bool {
+        matches!(
+            self,
+            Self::ProjectCreate { .. }
+                | Self::InviteCreate { .. }
+                | Self::InviteRedeem { .. }
+                | Self::JoinRequests { .. }
+                | Self::JoinAnswer { .. }
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
