@@ -50,9 +50,14 @@ impl Home {
     pub fn replay_log(&self) -> PathBuf {
         self.root.join("replay.cbor")
     }
-    /// Set once the node has been sent this Device's `ENROL` by assertion.
-    pub fn enrolled_marker(&self) -> PathBuf {
-        self.root.join("enrolled")
+    /// This Device's `ENROL` by assertion, as sent to the node: written once it is sent, and
+    /// carried in every scratchpad note and ack as the proof of this Device's keys.
+    pub fn enrol_proof(&self) -> PathBuf {
+        self.root.join("keys").join("enrol-proof.cbor")
+    }
+    /// The developer scratchpad on this Device (`crate::pad::state`), 0600.
+    pub fn pad_state(&self) -> PathBuf {
+        self.root.join("pad.json")
     }
     pub fn inbox(&self) -> PathBuf {
         self.root.join("inbox")

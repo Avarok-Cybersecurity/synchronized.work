@@ -16,6 +16,8 @@ pub fn rules(issuer: &SigningKey) -> Rules {
             inbox_max_bytes: 64 * 1024,
             max_persons: 8,
             max_tasks: 16,
+            pad_rate_per_min: 10,
+            pad_pending_max: 50,
         },
         new_person_policy: PersonPolicy {
             approval: Approval::Manual,

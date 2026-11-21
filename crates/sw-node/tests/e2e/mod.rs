@@ -52,6 +52,8 @@ impl Account {
 }
 
 const PASSWORD: &str = "a generated endpoint password";
+/// The test server is plain TCP on loopback: there is no certificate to verify.
+const LOOPBACK_CERTS: CertVerification = CertVerification::SelfSignedAccepted;
 
 pub struct Client {
     pub account: Account,
@@ -69,10 +71,13 @@ impl Client {
     ) -> Result<Self, NetworkError> {
         let user = account.username.clone();
         remote
-            .register_with_defaults(addr, user.as_str(), user.as_str(), PASSWORD)
+            .register_with_defaults(addr, user.as_str(), user.as_str(), PASSWORD, LOOPBACK_CERTS)
             .await?;
         let mut conn = remote
-            .connect_with_defaults(AuthenticationRequest::credentialed(user, PASSWORD))
+            .connect_with_defaults(
+                AuthenticationRequest::credentialed(user, PASSWORD),
+                LOOPBACK_CERTS,
+            )
             .await?;
         let (tx, rx) = conn.take_channel().expect("a C2S channel").split();
         let mut client = Self {

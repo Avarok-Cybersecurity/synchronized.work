@@ -62,7 +62,18 @@ impl Daemon {
             Ok(b) => first.push(b),
             Err(e) => log::error!("HELLO: {e:?}"),
         }
-        if !self.home.enrolled_marker().exists() {
+        let mut enrol = None;
+        let current = crate::home::read_private(&self.home.enrol_proof())
+            .ok()
+            .flatten()
+            .is_some_and(|p| {
+                crate::outbound::proof_is_current(
+                    &p,
+                    self.keys.sign.public_key(),
+                    self.keys.kem.encapsulation_key(),
+                )
+            });
+        if !current {
             match outbound.enrol(
                 &self.keys.sign,
                 self.keys.kem.encapsulation_key(),
@@ -70,7 +81,10 @@ impl Daemon {
                 now_ms(),
                 &mut self.entropy,
             ) {
-                Ok(b) => first.push(b),
+                Ok(b) => {
+                    enrol = Some(b.clone());
+                    first.push(b);
+                }
                 Err(e) => log::error!("ENROL: {e:?}"),
             }
         }
@@ -85,15 +99,21 @@ impl Daemon {
         for bytes in first.into_iter().chain(backlog) {
             self.send(bytes);
         }
-        if !self.home.enrolled_marker().exists() {
-            match crate::home::write_private(&self.home.enrolled_marker(), b"1") {
+        if let Some(proof) = enrol {
+            match crate::home::write_private(&self.home.enrol_proof(), &proof) {
                 Ok(()) => log::info!("sent ENROL by assertion"),
-                Err(e) => log::error!("the enrolled marker: {e}"),
+                Err(e) => log::error!("the enrolment proof: {e}"),
             }
         }
+        self.pad_connected();
     }
 
     pub(crate) fn on_message(&mut self, bytes: &[u8]) {
+        // What the node sends the moment a session opens (queued notes) can be read before the
+        // state change is: take the session's CID first, or those messages would be dropped.
+        if !self.online {
+            self.on_state();
+        }
         let typ = match SwMessage::from_bytes(bytes) {
             Ok(SwMessage::Unsigned(Payload::Event(ev))) => {
                 self.projection.apply_event(ev);
@@ -101,6 +121,14 @@ impl Daemon {
             }
             Ok(SwMessage::Unsigned(Payload::Notify(n))) => {
                 log::info!("notify {}: {}", n.kind, crate::frame::sanitize(&n.subject));
+                return;
+            }
+            Ok(SwMessage::Unsigned(Payload::PadDirectory(d))) if d.members.is_some() => {
+                self.on_pad_directory(d);
+                return;
+            }
+            Ok(SwMessage::Unsigned(Payload::PadReceipt(r))) => {
+                self.on_pad_receipt(r);
                 return;
             }
             Ok(SwMessage::Unsigned(p)) => {
@@ -119,6 +147,8 @@ impl Daemon {
         };
         if matches!(typ, 4 | 5) {
             self.on_signal(bytes);
+        } else if matches!(typ, 18 | 19) {
+            self.on_pad_signed(bytes);
         } else {
             log::debug!("ignored a signed typ {typ} from the node");
         }

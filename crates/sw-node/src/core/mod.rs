@@ -11,6 +11,7 @@ mod enrol;
 mod inbox;
 pub mod load;
 mod notify;
+mod pad;
 mod refusal;
 mod significant;
 mod task;
@@ -19,6 +20,7 @@ mod tree;
 pub use codec::{task_from_bytes, task_to_bytes};
 pub use directory::Directory;
 pub use notify::{DEDUP_WINDOW_MS, event_id};
+pub use pad::PadRefusal;
 pub use refusal::NodeRefusal;
 pub use significant::{Kind, Significant};
 pub use task::{AgentState, TaskState};
@@ -68,6 +70,7 @@ pub struct NodeCore {
     tree: Tree,
     inbox: Inbox,
     notifier: Notifier,
+    pad: pad::ledger::Ledger,
     online: BTreeSet<Cid>,
     /// Sessions that sent `HELLO`, the first message of every session.
     greeted: BTreeSet<Cid>,
@@ -82,6 +85,7 @@ impl NodeCore {
             tree: Tree::default(),
             inbox: Inbox::default(),
             notifier: Notifier::default(),
+            pad: pad::ledger::Ledger::default(),
             online: BTreeSet::new(),
             greeted: BTreeSet::new(),
         }
@@ -114,6 +118,7 @@ impl NodeCore {
         effects.extend(gone.iter().map(|id| Effect::Delete {
             key: inbox::key(cid, id),
         }));
+        effects.extend(self.pad_connected(cid, now_ms));
         effects
     }
 

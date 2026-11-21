@@ -1,13 +1,19 @@
-//! The 17 message types and their payloads (sw-wire contract §3).
+//! The message types and their payloads: 1–17 per the sw-wire contract §3, and the
+//! developer scratchpad's 18–22 ([`pad`]).
 
 mod coop;
 mod node;
+pub mod pad;
 mod signal;
 mod status;
 
 pub use coop::{JoinAnswer, JoinRequest, Suggestion, TaskFields, TaskOp, TaskWrite};
 pub use node::{
     Enrol, EnrolOp, Event, EventBody, Link, LinkOp, Notify, PubKeys, Subscribe, SubscribeOp,
+};
+pub use pad::{
+    ContentKey, KeyWrap, PadAck, PadDirectory, PadMember, PadNote, PadPolicy, PadReceipt, PadScope,
+    PadSealed, PadText,
 };
 pub use signal::{ControlInner, ControlOp, PromptInner, PromptMode};
 pub use status::{
@@ -76,6 +82,11 @@ pub enum Payload {
     Subscribe(Subscribe),
     Link(Link),
     ProgressTail(ProgressTail),
+    PadNote(PadNote),
+    PadAck(PadAck),
+    PadPolicy(PadPolicy),
+    PadDirectory(PadDirectory),
+    PadReceipt(PadReceipt),
 }
 
 macro_rules! dispatch {
@@ -106,6 +117,8 @@ dispatch! {
     8 => JoinRequest(JoinRequest), 9 => JoinAnswer(JoinAnswer), 10 => TaskWrite(TaskWrite),
     11 => Enrol(Enrol), 12 => Suggestion(Suggestion), 13 => Event(Event), 14 => Notify(Notify),
     15 => Subscribe(Subscribe), 16 => Link(Link), 17 => ProgressTail(ProgressTail),
+    18 => PadNote(PadNote), 19 => PadAck(PadAck), 20 => PadPolicy(PadPolicy),
+    21 => PadDirectory(PadDirectory), 22 => PadReceipt(PadReceipt),
 }
 
 impl Payload {
@@ -115,14 +128,15 @@ impl Payload {
     pub fn signer(&self) -> Option<SignerRole> {
         match self {
             Self::Hello(_) | Self::Presence(_) | Self::Event(_) | Self::Notify(_) => None,
-            Self::Subscribe(_) => None,
+            Self::Subscribe(_) | Self::PadDirectory(_) | Self::PadReceipt(_) => None,
             Self::Link(link) if link.op == LinkOp::Redeem => None,
             Self::Enrol(e) if e.assertion.is_some() => Some(SignerRole::EnrollingEndpoint),
             Self::Enrol(_) => Some(SignerRole::Identity),
             Self::StatusUpdate(_) | Self::ProgressEvent(_) | Self::Ack(_) => {
                 Some(SignerRole::Device)
             }
-            Self::ProgressTail(_) => Some(SignerRole::Device),
+            Self::ProgressTail(_) | Self::PadNote(_) | Self::PadAck(_) => Some(SignerRole::Device),
+            Self::PadPolicy(_) => Some(SignerRole::Endpoint),
             Self::Prompt(_) | Self::Control(_) | Self::JoinAnswer(_) => {
                 Some(SignerRole::Controller)
             }
@@ -136,6 +150,7 @@ impl Payload {
     pub fn max_lifetime_ms(&self) -> u64 {
         match self.typ() {
             2 | 3 | 4 | 5 | 6 | 17 => limits::LONG_LIFETIME_MS,
+            18 | 19 => pad::pad_limits::LIFETIME_MS,
             _ => limits::SHORT_LIFETIME_MS,
         }
     }

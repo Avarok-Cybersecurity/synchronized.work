@@ -12,6 +12,24 @@ use tokio::sync::{Mutex, mpsc};
 
 use super::{SessionSettings, Shared};
 
+/// The level the session is built at; the client node's maximum is this too.
+pub(super) const SESSION_LEVEL: SecurityLevel = SecurityLevel::Standard;
+
+/// The session's suite, every part named: ML-KEM-1024 (FIPS 203) with AES-256-GCM, and no
+/// per-packet signature, since every `SwMessage` carries its own ML-DSA-65 signature.
+fn session_security() -> SessionSecuritySettings {
+    SessionSecuritySettings {
+        security_level: SESSION_LEVEL,
+        secrecy_mode: SecrecyMode::BestEffort,
+        crypto_params: CryptoParameters::new(
+            EncryptionAlgorithm::AES_GCM_256,
+            KemAlgorithm::MlKem1024Fips203,
+            SigAlgorithm::None,
+        ),
+        header_obfuscator_settings: HeaderObfuscatorSettings::Disabled,
+    }
+}
+
 pub(super) struct SessionKernel {
     remote: Option<NodeRemote<StackedRatchet>>,
     settings: SessionSettings,
@@ -53,8 +71,9 @@ impl SessionKernel {
                     s.username.as_str(),
                     s.username.as_str(),
                     s.password.as_str(),
-                    Default::default(),
+                    session_security(),
                     None,
+                    s.cert_verification,
                 )
                 .await?;
         }
@@ -62,10 +81,11 @@ impl SessionKernel {
             .connect(
                 AuthenticationRequest::credentialed(s.username.clone(), s.password.as_str()),
                 ConnectMode::Standard { force_login: true },
-                Default::default(),
+                UdpMode::Disabled,
                 None,
-                Default::default(),
+                session_security(),
                 None,
+                s.cert_verification,
             )
             .await
     }
@@ -124,7 +144,8 @@ impl NetKernel<StackedRatchet> for SessionKernel {
                 reason: reason.clone(),
             });
             if self.inbound.is_closed() {
-                return Ok(());
+                // The daemon is gone: leave the node now rather than hold a session open.
+                return remote.shutdown().await;
             }
             tokio::time::sleep(self.settings.reconnect_delay).await;
         }

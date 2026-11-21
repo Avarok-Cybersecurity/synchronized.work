@@ -142,6 +142,13 @@ fn read_pin(home: &Home) -> Result<Option<(MlDsa65Pk, u64)>, SignInError> {
     }
 }
 
+/// The pinned issuer's ML-DSA-65 key: what scratchpad proofs are verified against.
+pub fn issuer_key(home: &Home) -> Result<Vec<u8>, SignInError> {
+    let (pk, _) = read_pin(home)?
+        .ok_or_else(|| SignInError::NotSignedIn("no issuer is pinned; run sign_in_start".into()))?;
+    Ok(pk.as_bytes().to_vec())
+}
+
 /// The stored assertion, re-verified against the pinned issuer key at `now_s`.
 pub fn load_assertion(home: &Home, now_s: u64) -> Result<AcceptedAssertion, SignInError> {
     let Some((issuer_pk, _)) = read_pin(home)? else {

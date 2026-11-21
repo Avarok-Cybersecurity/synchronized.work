@@ -1,4 +1,4 @@
-//! The Device's own secrets (design §5.4; contract §6): an ML-DSA-65 signing key, an ML-KEM-768
+//! The Device's own secrets (design §5.4; contract §6): an ML-DSA-65 signing key, an ML-KEM-1024
 //! sealing key and the Citadel account password. All three are *generated* here, never derived
 //! from the identity seed, which `sw-mcp` never holds (D-B).
 //!

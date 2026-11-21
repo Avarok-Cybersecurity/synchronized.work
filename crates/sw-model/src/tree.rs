@@ -82,7 +82,7 @@ pub struct Endpoint {
     pub kind: EndpointKind,
     /// The Endpoint's ML-DSA-65 verifying key (1952 bytes).
     pub sign_pk: Vec<u8>,
-    /// The ML-KEM-768 encapsulation key (1184 bytes); a Device's.
+    /// The ML-KEM-1024 encapsulation key (1568 bytes); a Device's.
     pub seal_pk: Option<Vec<u8>>,
     /// The Person's revocation epoch when this Endpoint was enrolled.
     pub epoch: u64,

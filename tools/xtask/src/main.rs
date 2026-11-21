@@ -7,6 +7,7 @@ mod node_budget;
 mod pin;
 mod plan;
 mod sbio;
+mod seal_kat;
 mod size;
 mod workspace;
 
@@ -26,10 +27,11 @@ fn main() -> ExitCode {
         Some("sbio") => sbio::run(&root),
         Some("conformance") => conformance::run(&root, &args[1..]),
         Some("plan") => plan::run(&root),
+        Some("seal-kat") => seal_kat::run(&root),
         Some("size") => size::run(&root, &args[1..]),
         Some("site-size") => size::site(&root, &args[1..]),
         Some("node-budget") => node_budget::run(&root, &args[1..]),
-        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>] | plan | size <dir> | site-size <dir> | node-budget <measure.json>>".to_owned()),
+        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>] | plan | seal-kat | size <dir> | site-size <dir> | node-budget <measure.json>>".to_owned()),
     };
     match result {
         Ok(verdict) => {

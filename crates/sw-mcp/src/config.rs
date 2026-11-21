@@ -2,6 +2,7 @@
 //! (PCND): a missing or unknown field stops every subcommand with exit status 2 and the
 //! parser's message, which names the field.
 
+use citadel_sdk::prelude::CertVerification;
 use serde::Deserialize;
 
 use citadel_identity::{CanonicalDomain, canonical_domain, make_username};
@@ -178,6 +179,17 @@ impl Config {
         };
         let host = rest.split('/').next().unwrap_or_default();
         canonical_domain(host).map_err(|e| invalid("server", e.to_string()))
+    }
+
+    /// What the session demands of the node's certificate, by `server`'s scheme: a `wss://`
+    /// node must present one the OS roots verify; a loopback `ws://` node has no TLS to verify.
+    pub fn cert_verification(&self) -> Result<CertVerification, ConfigError> {
+        self.node_domain()?;
+        Ok(if self.server.starts_with("wss://") {
+            CertVerification::Required
+        } else {
+            CertVerification::SelfSignedAccepted
+        })
     }
 
     /// The Device's Citadel username on the node: `<id_fp>.<slug>@<node>` (contract §6).

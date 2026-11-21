@@ -68,7 +68,7 @@ fn unknown_and_missing_keys_are_refused() {
 #[test]
 fn unknown_type_and_both_slots_are_refused() {
     let bytes = encode(&Value::Map(vec![
-        (1.into(), 18.into()),
+        (1.into(), 23.into()),
         (2.into(), hello().to_value()),
     ]))
     .unwrap();
@@ -171,4 +171,19 @@ fn enrol_and_revoke_carry_exactly_their_op_fields() {
         assertion: None,
     };
     assert!(Payload::from_value(11, device_without_seal.to_value()).is_err());
+    let with_seal = |len: usize| Enrol {
+        pubkeys: Some(PubKeys {
+            sign: sw_protocol::wire::Bytes(vec![0; 1952]),
+            seal: Some(sw_protocol::wire::Bytes(vec![0; len])),
+        }),
+        ..device_without_seal.clone()
+    };
+    assert!(
+        Payload::from_value(11, with_seal(1568).to_value()).is_ok(),
+        "control: an ML-KEM-1024 key"
+    );
+    assert!(
+        Payload::from_value(11, with_seal(1184).to_value()).is_err(),
+        "an ML-KEM-768 key is refused"
+    );
 }

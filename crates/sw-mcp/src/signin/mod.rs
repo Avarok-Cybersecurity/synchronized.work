@@ -12,7 +12,7 @@ mod flow;
 mod http;
 
 pub use flow::{
-    IssuerPort, IssuerReply, SignInError, complete_sign_in, load_assertion, pin_issuer,
+    IssuerPort, IssuerReply, SignInError, complete_sign_in, issuer_key, load_assertion, pin_issuer,
 };
 pub use http::HttpIssuer;
 

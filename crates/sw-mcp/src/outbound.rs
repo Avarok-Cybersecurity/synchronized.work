@@ -35,7 +35,7 @@ impl Outbound {
         }
     }
 
-    fn sign(
+    pub fn sign(
         &mut self,
         key: &SigningKey,
         aud: Audience,
@@ -43,17 +43,30 @@ impl Outbound {
         now_ms: u64,
         entropy: &mut dyn Entropy,
     ) -> Result<Vec<u8>, WireError> {
+        let exp = now_ms.saturating_add(payload.max_lifetime_ms());
+        self.sign_until(key, aud, payload, now_ms, exp, entropy)
+    }
+
+    /// A message with an explicit `exp` (a scratchpad note lives for its project's retention).
+    pub fn sign_until(
+        &mut self,
+        key: &SigningKey,
+        aud: Audience,
+        payload: Payload,
+        now_ms: u64,
+        exp: u64,
+        entropy: &mut dyn Entropy,
+    ) -> Result<Vec<u8>, WireError> {
         let seq = self.last_seq.saturating_add(1).max(now_ms);
         self.last_seq = seq;
         let mut nonce = [0u8; 16];
         entropy.fill(&mut nonce);
-        let lifetime = payload.max_lifetime_ms();
         let body = Body {
             iss: self.iss.clone(),
             from: self.cid,
             aud,
             iat: now_ms,
-            exp: now_ms.saturating_add(lifetime),
+            exp,
             nonce,
             seq,
             payload,
@@ -169,4 +182,22 @@ impl Outbound {
             entropy,
         )
     }
+}
+
+/// Whether a stored ENROL still announces this Device's keys. A proof from before a key or
+/// envelope change (or one that no longer decodes) is stale, and the Device enrols again.
+pub fn proof_is_current(proof: &[u8], sign_pk: &[u8], seal_pk: &[u8]) -> bool {
+    let Ok(SwMessage::Signed { signed, .. }) = SwMessage::from_bytes(proof) else {
+        return false;
+    };
+    let Ok(body) = Body::from_bytes(&signed.body.0) else {
+        return false;
+    };
+    matches!(
+        body.payload,
+        Payload::Enrol(Enrol {
+            pubkeys: Some(PubKeys { sign, seal: Some(seal) }),
+            ..
+        }) if sign.0 == sign_pk && seal.0 == seal_pk
+    )
 }

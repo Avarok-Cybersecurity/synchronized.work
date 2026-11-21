@@ -40,6 +40,9 @@ pub enum Verifier<'a> {
     },
     /// A Device or Controller: only messages addressed to its own CID.
     Endpoint { cid: Cid },
+    /// A scratchpad reader: a node-addressed 18 / 19 relayed to it, verified against the
+    /// sender's own enrolment proof rather than anything the node supplies.
+    Reader,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +71,8 @@ pub enum Refusal {
     NotP2pEligible,
     /// `ENROL` by assertion whose assertion does not enrol this key here.
     Assertion(AssertionRefusal),
+    /// A scratchpad proof that is not a Device's ENROL by assertion, or names another key.
+    BadProof,
 }
 
 impl From<WireError> for Refusal {

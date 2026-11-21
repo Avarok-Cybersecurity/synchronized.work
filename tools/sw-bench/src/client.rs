@@ -29,6 +29,17 @@ pub enum Dial {
     Ws(WebSocketEndpoint),
 }
 
+impl Dial {
+    /// What the node's certificate must prove: a `wss://` node's must verify against the OS
+    /// roots; a plain TCP or `ws://` node (a local `wrangler dev`) offers no TLS to verify.
+    pub fn cert_verification(&self) -> CertVerification {
+        match self {
+            Self::Ws(url) if url.is_secure() => CertVerification::Required,
+            Self::Tcp(_) | Self::Ws(_) => CertVerification::SelfSignedAccepted,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Account {
     pub identity: Identity,
@@ -79,7 +90,13 @@ pub async fn register(
     let user = a.username();
     match dial {
         Dial::Tcp(addr) => remote
-            .register_with_defaults(*addr, user.as_str(), user.as_str(), PASSWORD)
+            .register_with_defaults(
+                *addr,
+                user.as_str(),
+                user.as_str(),
+                PASSWORD,
+                dial.cert_verification(),
+            )
             .await
             .map(|_| ()),
         Dial::Ws(url) => remote
@@ -88,8 +105,9 @@ pub async fn register(
                 user.as_str(),
                 user.as_str(),
                 PASSWORD,
-                Default::default(),
+                default_session_security_settings(),
                 None,
+                dial.cert_verification(),
             )
             .await
             .map(|_| ()),
@@ -108,10 +126,13 @@ impl Client {
     /// Signs in through the node's post-quantum sign-in and sends `HELLO`.
     pub async fn sign_in(
         remote: &NodeRemote<StackedRatchet>,
+        dial: &Dial,
         account: Account,
     ) -> Result<Self, NetworkError> {
         let request = AuthenticationRequest::credentialed(account.username(), PASSWORD);
-        let mut conn = remote.connect_with_defaults(request).await?;
+        let mut conn = remote
+            .connect_with_defaults(request, dial.cert_verification())
+            .await?;
         let channel = conn
             .take_channel()
             .ok_or_else(|| NetworkError::msg("no C2S channel"))?;

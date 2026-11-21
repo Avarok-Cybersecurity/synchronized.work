@@ -102,3 +102,18 @@ fn unknown_fields_insecure_servers_and_zero_limits_are_refused() {
         })
     ));
 }
+
+#[test]
+fn a_wss_node_must_verify_its_certificate_and_only_loopback_ws_goes_without() {
+    use citadel_sdk::prelude::CertVerification;
+    let c = Config::parse(FULL).unwrap();
+    assert_eq!(c.cert_verification().unwrap(), CertVerification::Required);
+    let local = FULL.replace(
+        "wss://synchronized.work/citadel",
+        "ws://127.0.0.1:8787/citadel",
+    );
+    assert_eq!(
+        Config::parse(&local).unwrap().cert_verification().unwrap(),
+        CertVerification::SelfSignedAccepted
+    );
+}

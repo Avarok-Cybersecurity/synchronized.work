@@ -98,6 +98,8 @@ pub(super) fn check_audience(body: &Body, verifier: Verifier<'_>) -> Result<(), 
         }
         (Verifier::Endpoint { cid }, Audience::Endpoint(to)) => to == cid,
         (Verifier::Endpoint { .. }, Audience::Node) => false,
+        (Verifier::Reader, Audience::Node) => matches!(body.payload.typ(), 18 | 19),
+        (Verifier::Reader, Audience::Endpoint(_)) => false,
     };
     if ok {
         Ok(())

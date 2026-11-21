@@ -107,6 +107,6 @@ fn signal_id_is_sha3_256_of_the_signed_bytes() {
         .collect();
     assert_eq!(
         id,
-        "3e857b92f991b42ee288244755dbe2993ef9472cfda1a4e1bd3bcbdab77545ea"
+        "061ebeebf5554c41cfbaf3e291750190a4fd3f4854a58c1e9dd79180e4bbd65a"
     );
 }

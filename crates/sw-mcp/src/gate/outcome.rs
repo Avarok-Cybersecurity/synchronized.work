@@ -85,6 +85,7 @@ fn refusal_code(r: &Refusal) -> &'static str {
         Refusal::TypMismatch => "typ_mismatch",
         Refusal::NotP2pEligible => "not_p2p_eligible",
         Refusal::Assertion(_) => "assertion",
+        Refusal::BadProof => "bad_proof",
     }
 }
 

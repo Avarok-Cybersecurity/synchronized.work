@@ -5,10 +5,15 @@ mod admin;
 mod inbound;
 mod inbox;
 mod listen;
+mod pad;
+mod pad_in;
+mod pad_post;
+mod pad_req;
 mod requests;
 mod signals;
 
 pub use inbox::{Inbox, QueuedSignal, hex};
+pub use pad::{PAD_WAIT_MAX_S, pad_ask_timeout_s};
 pub use requests::MAX_WAIT_S;
 
 use std::collections::{BTreeMap, VecDeque};
@@ -41,6 +46,8 @@ pub(crate) struct SignedIn {
     pub(crate) identity_pk: Vec<u8>,
     pub(crate) blob: Vec<u8>,
     pub(crate) exp_s: u64,
+    /// The pinned sign-in issuer key, which scratchpad proofs are verified against.
+    pub(crate) issuer_pk: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +83,9 @@ pub struct Daemon {
     pub(crate) last_flush_ms: u64,
     pub(crate) unsent: VecDeque<Vec<u8>>,
     pub(crate) waiters: Vec<Waiter>,
+    pub(crate) pad: crate::pad::state::PadState,
+    pub(crate) pad_waiters: Vec<pad::PadWaiter>,
+    pub(crate) pad_asks: Vec<pad::PadAsk>,
     pub(crate) entropy: OsEntropy,
 }
 
@@ -103,6 +113,7 @@ impl Daemon {
         let log = crate::store::load_replay_log(&home)?;
         let inbox = Inbox::load(home.inbox())?;
         let gate = DeviceGate::new(GateLimits::from_config(&config), log);
+        let pad_state = pad::load_state(&home)?;
         let mut daemon = Self {
             home,
             config,
@@ -122,6 +133,9 @@ impl Daemon {
             last_flush_ms: 0,
             unsent: VecDeque::new(),
             waiters: Vec::new(),
+            pad: pad_state,
+            pad_waiters: Vec::new(),
+            pad_asks: Vec::new(),
             entropy: OsEntropy,
         };
         daemon.load_sign_in();
@@ -130,8 +144,9 @@ impl Daemon {
 
     /// Reads the stored assertion; without one the daemon serves the socket and waits.
     pub(crate) fn load_sign_in(&mut self) {
-        match load_assertion(&self.home, now_ms() / 1000) {
-            Ok(a) => match CitadelIdentity.id_fp(&a.identity_pk) {
+        let issuer = crate::signin::issuer_key(&self.home);
+        match (load_assertion(&self.home, now_ms() / 1000), issuer) {
+            (Ok(a), Ok(issuer_pk)) => match CitadelIdentity.id_fp(&a.identity_pk) {
                 Ok(id_fp) => {
                     log::info!("signed in as {}; device {}", id_fp.as_str(), a.device);
                     self.signed_in = Some(SignedIn {
@@ -139,11 +154,12 @@ impl Daemon {
                         identity_pk: a.identity_pk,
                         blob: a.blob,
                         exp_s: a.exp_s,
+                        issuer_pk,
                     });
                 }
                 Err(e) => log::error!("the stored assertion's identity key: {e:?}"),
             },
-            Err(e) => log::warn!("{e}"),
+            (Err(e), _) | (_, Err(e)) => log::warn!("{e}"),
         }
     }
 
@@ -168,6 +184,7 @@ impl Daemon {
             backend: BackendType::Filesystem(backend_dir),
             reconnect_delay: Duration::from_secs(self.config.reconnect_delay_s),
             stun_servers: self.config.stun_servers.clone(),
+            cert_verification: self.config.cert_verification().map_err(|e| e.to_string())?,
         };
         let (session, done) = CitadelSession::start(settings)?;
         tokio::spawn(async move {
