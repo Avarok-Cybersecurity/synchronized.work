@@ -53,19 +53,9 @@ impl From<PadRefusal> for NodeRefusal {
 }
 
 impl NodeCore {
-    /// The members of a project: its owner and every co-worker admitted to one of its tasks
-    /// (admission is the owner's decision). Owning a child task is not membership: the tree
-    /// lets any Person create one. `None` if no such project.
+    /// The members of a project ([`super::tree::Tree::members`]); `None` if no such project.
     pub fn pad_members(&self, project: &str) -> Option<BTreeSet<IdFp>> {
-        let root = self.tree.get(project)?;
-        if root.parent.is_some() {
-            return None;
-        }
-        let mut out = BTreeSet::from([self.tree.project_owner(root)]);
-        for task in self.tree.tasks.values().filter(|t| t.project == project) {
-            out.extend(task.coworkers());
-        }
-        Some(out)
+        self.tree.members(project)
     }
 
     pub(super) fn pad_receipt(

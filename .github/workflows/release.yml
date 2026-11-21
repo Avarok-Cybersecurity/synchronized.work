@@ -1,0 +1,248 @@
+# Builds and publishes sw-mcp, so a person can install it without Rust:
+#   curl -fsSL https://synchronized.work/install.sh | sh
+# links /releases/latest/download/<asset>, so the ASSET NAMES below are a contract with
+# site/public/install.sh (one `release-download:` line each; publish checks every one).
+#   release-download: sw-mcp-macos-arm64.tar.gz
+#   release-download: sw-mcp-macos-x64.tar.gz
+#   release-download: sw-mcp-linux-x64.tar.gz
+# No native Windows build: the daemon's socket is a Unix socket (0600) and its key files rely on
+# Unix modes. On Windows, the Linux build runs inside WSL 2.
+#
+# RELEASES ARE TAGGED FROM MAIN ONLY, by this workflow, never by hand. On a push to main, the
+# version is the workspace's (Cargo.toml [workspace.package]); if `sw-mcp-v<version>` is not
+# yet a tag and the release key is committed, this run builds, signs, attests and publishes
+# that release, tagging the main commit it built. Bump the version in a PR to release again.
+# A pull request touching the release (or a manual dispatch) builds every platform as a dry
+# run, signed with a throwaway key, and publishes nothing; a push to main that has nothing to
+# publish builds nothing.
+#
+# EVERY ASSET IS CHECKSUMMED, ATTESTED AND SIGNED with ML-DSA-65 (tools/sw-release-sign):
+# `<asset>.mldsa.sig` under the SW_MCP_RELEASE_MLDSA_KEY secret, verified against the public
+# key committed at release/sw-mcp-release.pub before anything is uploaded. Until that file
+# holds a real key (it says PLACEHOLDER), main builds as a dry run and nothing is published.
+name: release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - tools/sw-release-sign/**
+      - release/**
+      - site/public/install.sh
+      - crates/sw-mcp/Cargo.toml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Version, tag and release key
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      publishes: ${{ steps.v.outputs.publishes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: rustup toolchain install
+      - name: Build and test the release signer
+        run: |
+          cargo test --locked -p sw-release-sign
+          cargo build --locked --release -p sw-release-sign
+          mkdir -p "$RUNNER_TEMP/sign" && cp target/release/sw-release-sign "$RUNNER_TEMP/sign/"
+      - id: v
+        name: Whether this run publishes
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          MLDSA_KEY: ${{ secrets.SW_MCP_RELEASE_MLDSA_KEY }}
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "sw-mcp") | .version')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::sw-mcp version $version"; exit 1; }
+          tag="sw-mcp-v$version"
+          tool="$RUNNER_TEMP/sign/sw-release-sign"
+          publishes=false
+          if [ "$EVENT" != push ] || [ "$REF" != refs/heads/main ]; then
+            echo "::notice::dry run ($EVENT on $REF): builds and signs with a throwaway key"
+          elif git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::notice::$tag is already released; bump the workspace version to release again"
+          elif ! "$tool" check-key --public-key release/sw-mcp-release.pub; then
+            echo "::notice::no release key is committed (release/sw-mcp-release.pub): dry run"
+          else
+            [ -n "$MLDSA_KEY" ] || { echo "::error::SW_MCP_RELEASE_MLDSA_KEY is not set: no release is published unsigned"; exit 1; }
+            probe="$(mktemp -d)"; trap 'rm -rf "$probe"' EXIT
+            (umask 077 && printf '%s\n' "$MLDSA_KEY" > "$probe/key")
+            echo probe > "$probe/probe"
+            "$tool" sign --private-key "$probe/key" --tag sw-mcp-v0.0.0-probe "$probe/probe" >/dev/null
+            "$tool" verify --public-key release/sw-mcp-release.pub --tag sw-mcp-v0.0.0-probe "$probe/probe" \
+              || { echo "::error::SW_MCP_RELEASE_MLDSA_KEY is not the private half of release/sw-mcp-release.pub"; exit 1; }
+            publishes=true
+          fi
+          { echo "version=$version"; echo "tag=$tag"; echo "publishes=$publishes"; } >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sw-release-sign
+          path: ${{ runner.temp }}/sign/sw-release-sign
+          if-no-files-found: error
+
+  build:
+    name: ${{ matrix.asset }}
+    needs: version
+    if: needs.version.outputs.publishes == 'true' || github.event_name != 'push'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            asset: sw-mcp-macos-arm64.tar.gz
+          # Cross-compiled on Apple Silicon; its smoke check runs under Rosetta.
+          - os: macos-14
+            target: x86_64-apple-darwin
+            asset: sw-mcp-macos-x64.tar.gz
+          # 22.04: no newer glibc than most supported distros have.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            asset: sw-mcp-linux-x64.tar.gz
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install && rustup target add ${{ matrix.target }}
+      - name: Build sw-mcp (OpenSSL vendored and linked statically)
+        run: cargo build --release --locked --target ${{ matrix.target }} -p sw-mcp --features vendored-openssl
+      - name: The binary is this version and links no OpenSSL from the build host
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          bin=target/${{ matrix.target }}/release/sw-mcp
+          [ "$("$bin" --version)" = "sw-mcp $VERSION" ] || { "$bin" --version; echo "::error::not sw-mcp $VERSION"; exit 1; }
+          if [ "$RUNNER_OS" = macOS ]; then
+            otool -L "$bin" | tee /dev/stderr | grep -qiE 'openssl|libssl|libcrypto|/opt/homebrew|/usr/local' && { echo "::error::links a host library"; exit 1; } || true
+            lipo -archs "$bin" | grep -qx "$([ ${{ matrix.target }} = x86_64-apple-darwin ] && echo x86_64 || echo arm64)"
+          else
+            ldd "$bin" | tee /dev/stderr | grep -qiE 'libssl|libcrypto' && { echo "::error::links the host OpenSSL"; exit 1; } || true
+          fi
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          staging="$(mktemp -d)"
+          cp target/${{ matrix.target }}/release/sw-mcp release/config.toml release/README.txt LICENSE-MIT LICENSE-APACHE "$staging/"
+          tar -czf "${{ matrix.asset }}" -C "$staging" .
+          shasum -a 256 "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            ${{ matrix.asset }}
+            ${{ matrix.asset }}.sha256
+          if-no-files-found: error
+
+  sign:
+    name: Sign every asset (ML-DSA-65)
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: sw-release-sign
+          path: ${{ runner.temp }}/sign
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sw-mcp-*
+          merge-multiple: true
+          path: dist
+      - name: Sign, then verify each signature
+        env:
+          PUBLISHES: ${{ needs.version.outputs.publishes }}
+          TAG: ${{ needs.version.outputs.tag }}
+          MLDSA_KEY: ${{ secrets.SW_MCP_RELEASE_MLDSA_KEY }}
+        run: |
+          set -euo pipefail
+          tool="$RUNNER_TEMP/sign/sw-release-sign"; chmod +x "$tool"
+          keys="$(mktemp -d)"; trap 'rm -rf "$keys"' EXIT
+          if [ "$PUBLISHES" = true ]; then
+            (umask 077 && printf '%s\n' "$MLDSA_KEY" > "$keys/private")
+            public=release/sw-mcp-release.pub; tag="$TAG"
+          else
+            tag="dry-run-$TAG"
+            echo "::warning::DRY RUN: signing with a throwaway ML-DSA key under $tag; nothing is published"
+            "$tool" keygen --private-key "$keys/private" --public-key "$keys/public"
+            public="$keys/public"
+          fi
+          mapfile -t assets < <(find dist -maxdepth 1 -name '*.tar.gz' | sort)
+          [ "${#assets[@]}" -eq 3 ] || { echo "::error::expected 3 archives: ${assets[*]}"; exit 1; }
+          (cd dist && sha256sum -c ./*.sha256)
+          "$tool" sign --private-key "$keys/private" --tag "$tag" "${assets[@]}"
+          "$tool" verify --public-key "$public" --tag "$tag" "${assets[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sw-mcp-mldsa-signatures
+          path: dist/*.mldsa.sig
+          if-no-files-found: error
+
+  publish:
+    name: Publish ${{ needs.version.outputs.tag }}
+    needs: [version, sign]
+    if: needs.version.outputs.publishes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write      # the tag and the release
+      id-token: write      # the attestations' Sigstore certificate
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: .github/workflows/release.yml, sparse-checkout-cone-mode: false }
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sw-mcp-*
+          merge-multiple: true
+          path: dist
+      - name: Every linked asset is here with its checksum and signature, and no key is
+        run: |
+          set -euo pipefail
+          names="$(sed -n 's/^#   release-download: //p' .github/workflows/release.yml)"
+          [ "$(printf '%s\n' "$names" | grep -c .)" -eq 3 ] || { echo "::error::the release-download list was not read"; exit 1; }
+          for n in $names; do
+            for f in "$n" "$n.sha256" "$n.mldsa.sig"; do [ -f "dist/$f" ] || { echo "::error::dist/$f is missing"; exit 1; }; done
+          done
+          (cd dist && sha256sum -c ./*.sha256)
+          keys="$(find dist -type f \( -iname '*.pem' -o -iname '*.key' -o -iname 'private*' \))"
+          [ -z "$keys" ] || { echo "::error::key files among the assets: $keys"; exit 1; }
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.tar.gz
+      - name: Verify the attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: for f in dist/*.tar.gz; do gh attestation verify "$f" --repo "$GITHUB_REPOSITORY"; done
+      - name: Tag this main commit and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^sw-mcp-v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::not a release tag: $TAG"; exit 1; }
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "sw-mcp ${TAG#sw-mcp-}" \
+            --notes "The synchronized.work MCP. Install with: curl -fsSL https://synchronized.work/install.sh | sh  (macOS arm64/x64, Linux x64; on Windows use WSL 2). Each archive has a .sha256, an ML-DSA-65 signature (.mldsa.sig, verify with tools/sw-release-sign against release/sw-mcp-release.pub) and a build attestation: gh attestation verify <file> --repo ${GITHUB_REPOSITORY}"

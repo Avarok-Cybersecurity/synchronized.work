@@ -78,8 +78,12 @@ async fn two_people_sign_in_enrol_and_the_owner_is_told_of_a_join_request() {
             alice.enrol().await?;
             bob.enrol().await?;
             alice.send(Audience::Node, e2e::create("p")).await?;
-            alice.send(Audience::Node, e2e::open_up("p")).await?;
-            bob.send(Audience::Node, e2e::join("p")).await?;
+            // The first invite opens the project to requests; Bob spends it.
+            alice
+                .send(Audience::Node, e2e::invite("p", &[9; 32]))
+                .await?;
+            bob.send(Audience::Node, e2e::join("p", Some([9; 32])))
+                .await?;
             let mut kinds = Vec::new();
             for _ in 0..2 {
                 let notify = tokio::time::timeout(Duration::from_secs(30), alice.next_notify())
@@ -87,7 +91,7 @@ async fn two_people_sign_in_enrol_and_the_owner_is_told_of_a_join_request() {
                     .map_err(|_| NetworkError::msg("no NOTIFY reached the owner"))??;
                 kinds.push(notify.kind);
             }
-            // Opening the task up is told to the project owner; the request, to the task owner.
+            // Opening the project up is told to its owner; the request, to the task owner.
             assert_eq!(kinds, ["tier_changed", "join_requested"]);
             remote.shutdown().await
         }))

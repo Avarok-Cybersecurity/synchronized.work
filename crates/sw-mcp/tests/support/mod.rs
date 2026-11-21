@@ -4,6 +4,7 @@
 
 pub mod device;
 pub mod node;
+pub mod onboard_flow;
 pub mod pad_sender;
 pub mod pad_world;
 pub mod sign_in;

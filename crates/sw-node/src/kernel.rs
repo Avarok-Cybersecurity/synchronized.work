@@ -96,7 +96,12 @@ impl<S: NodeStore, C: Clock + Send + Sync + 'static> SwKernel<S, C> {
             let now = self.clock.now_ms();
             match self.with_core(|core| core.received(cid, message.as_ref(), now))? {
                 Ok(effects) => outcome = self.run(effects).await,
-                Err(refusal) => log::info!(target: "sw_node", "refused from {cid}: {refusal:?}"),
+                Err(refusal) => {
+                    log::info!(target: "sw_node", "refused from {cid}: {refusal:?}");
+                    let receipt = self
+                        .with_core(|core| core.refusal_receipt(cid, message.as_ref(), &refusal))?;
+                    outcome = self.run(receipt).await;
+                }
             }
         }
         self.sinks.lock().await.remove(&cid);

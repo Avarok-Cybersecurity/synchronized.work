@@ -58,6 +58,10 @@ pub enum EventKind {
     Ack,
     /// The node refused a note or ack this Device sent.
     Refused,
+    /// Someone spent an invite to one of this Person's projects (a `NOTIFY` from the node).
+    JoinRequested,
+    /// A person was admitted to a project: this Person, or someone joining theirs.
+    Joined,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,8 +69,10 @@ pub struct EventRec {
     pub cursor: u64,
     pub kind: EventKind,
     pub note_id: String,
-    /// The acker (`Ack`) or the refusal reason (`Refused`).
+    /// The acker (`Ack`), the refusal reason (`Refused`) or the node's text (a join event).
     pub detail: Option<String>,
+    /// A join event's subject: the project or Task name, as the node reports it.
+    pub subject: Option<String>,
     /// An `Ack` or `Refused` already handed to a waiter. A `Note` stays live until acked.
     pub consumed: bool,
     pub exp: u64,
@@ -103,7 +109,13 @@ pub struct PadState {
 }
 
 impl PadState {
-    fn append(&mut self, kind: EventKind, note_id: &str, detail: Option<String>, exp: u64) -> u64 {
+    pub(super) fn append(
+        &mut self,
+        kind: EventKind,
+        note_id: &str,
+        detail: Option<String>,
+        exp: u64,
+    ) -> u64 {
         self.next_cursor += 1;
         let cursor = self.next_cursor;
         self.events.push(EventRec {
@@ -111,6 +123,7 @@ impl PadState {
             kind,
             note_id: note_id.to_owned(),
             detail,
+            subject: None,
             consumed: false,
             exp,
         });
@@ -201,7 +214,10 @@ impl PadState {
             e.cursor > after
                 && match e.kind {
                     EventKind::Note => received.get(&e.note_id).is_some_and(|n| !n.acked),
-                    EventKind::Ack | EventKind::Refused => !e.consumed,
+                    EventKind::Ack
+                    | EventKind::Refused
+                    | EventKind::JoinRequested
+                    | EventKind::Joined => !e.consumed,
                 }
         })?;
         if event.kind != EventKind::Note {

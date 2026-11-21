@@ -2,4 +2,5 @@
 //! ([`state`]) and the one event shape both wake-up paths deliver ([`event`]).
 
 pub mod event;
+pub mod notice;
 pub mod state;

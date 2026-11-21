@@ -24,6 +24,8 @@ pub enum PadCmd {
         #[arg(long)]
         timeout_s: u64,
     },
+    /// The project's members, with their fingerprint words and verified Devices.
+    Members { project: String },
     /// Notes waiting for an ack, and notes sent with their acks.
     Inbox {
         #[arg(long)]
@@ -67,6 +69,11 @@ pub fn run(home: &Home, cmd: PadCmd) -> Result<ExitCode, String> {
                 return Ok(ExitCode::from(WAIT_TIMEOUT_EXIT));
             }
         }
+        PadCmd::Members { project } => print(&call(
+            &socket,
+            &Request::PadMembers { project },
+            crate::daemon::pad_ask_timeout_s(),
+        )?)?,
         PadCmd::Inbox { project } => print(&call(&socket, &Request::PadInbox { project }, 0)?)?,
         PadCmd::Ack { note_id, reply } => {
             print(&call(&socket, &Request::PadAck { note_id, reply }, 0)?)?

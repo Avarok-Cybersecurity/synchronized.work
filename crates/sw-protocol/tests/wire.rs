@@ -68,7 +68,7 @@ fn unknown_and_missing_keys_are_refused() {
 #[test]
 fn unknown_type_and_both_slots_are_refused() {
     let bytes = encode(&Value::Map(vec![
-        (1.into(), 23.into()),
+        (1.into(), 25.into()),
         (2.into(), hello().to_value()),
     ]))
     .unwrap();
@@ -122,6 +122,7 @@ fn payload_limits_are_refused_at_decode() {
         note: "x".repeat(281),
         readiness: sw_model::readiness::Readiness::READY,
         agent_id: None,
+        invite: None,
     };
     assert_eq!(
         Payload::from_value(8, long_note.to_value()),

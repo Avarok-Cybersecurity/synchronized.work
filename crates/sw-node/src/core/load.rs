@@ -58,7 +58,9 @@ impl NodeCore {
             let id = hex32(id).ok_or_else(|| fail("bad signal id".into()))?;
             let q = inbox::decode(id, value).ok_or_else(|| fail("bad inbox entry".into()))?;
             self.inbox.load(cid, q);
-        } else if !self.pad_load(key, value).map_err(fail)? {
+        } else if !self.pad_load(key, value).map_err(fail)?
+            && !self.invite_load(key, value).map_err(fail)?
+        {
             return Err(fail("not a key the node writes".into()));
         }
         Ok(())

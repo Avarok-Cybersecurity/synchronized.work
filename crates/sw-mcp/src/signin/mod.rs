@@ -8,9 +8,11 @@
 //! 4. `accept`: the response's assertion must be the pinned issuer's, for `sw-mcp`, answering
 //!    this challenge, unexpired, and naming this Device's signing key.
 
+mod device;
 mod flow;
 mod http;
 
+pub use device::complete_here;
 pub use flow::{
     IssuerPort, IssuerReply, SignInError, complete_sign_in, issuer_key, load_assertion, pin_issuer,
 };

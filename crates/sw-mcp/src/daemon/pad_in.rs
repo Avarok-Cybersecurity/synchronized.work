@@ -23,6 +23,9 @@ pub(crate) fn signal_hex(bytes: &[u8]) -> Result<String, String> {
 
 impl Daemon {
     pub(super) fn on_pad_receipt(&mut self, r: PadReceipt) {
+        if self.onboard_receipt(&r) {
+            return;
+        }
         let id = HEXLOWER.encode(&r.id);
         let reason = r.reason.unwrap_or_default();
         if r.stored {

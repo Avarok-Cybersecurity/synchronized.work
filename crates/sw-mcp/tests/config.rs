@@ -117,3 +117,14 @@ fn a_wss_node_must_verify_its_certificate_and_only_loopback_ws_goes_without() {
         CertVerification::SelfSignedAccepted
     );
 }
+
+/// The config.toml every release ships (and install.sh installs) is one this sw-mcp accepts,
+/// once its DEVICE_SLUG is replaced; left as shipped it is refused (the control).
+#[test]
+fn the_released_config_parses_once_its_device_slug_is_set() {
+    let shipped = include_str!("../../../release/config.toml");
+    let config = sw_mcp::config::Config::parse(&shipped.replace("DEVICE_SLUG", "laptop")).unwrap();
+    assert_eq!(config.server, "wss://synchronized.work/citadel");
+    assert_eq!(config.sign_in_issuer, "work.avarok.net");
+    assert!(sw_mcp::config::Config::parse(shipped).is_err());
+}

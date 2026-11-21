@@ -1,0 +1,17 @@
+[package]
+name = "sw-release-sign"
+description = "Signs and verifies sw-mcp release assets with ML-DSA-65 (the release workflow's signer), and checks the committed release public key."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+sw-crypto.workspace = true
+data-encoding.workspace = true
+getrandom.workspace = true
+zeroize = { workspace = true, features = ["alloc"] }
+
+[lints]
+workspace = true

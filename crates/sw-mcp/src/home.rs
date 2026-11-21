@@ -59,6 +59,10 @@ impl Home {
     pub fn pad_state(&self) -> PathBuf {
         self.root.join("pad.json")
     }
+    /// The projects this Device created, joined or asked to join (`crate::projects`), 0600.
+    pub fn projects(&self) -> PathBuf {
+        self.root.join("projects.json")
+    }
     pub fn inbox(&self) -> PathBuf {
         self.root.join("inbox")
     }

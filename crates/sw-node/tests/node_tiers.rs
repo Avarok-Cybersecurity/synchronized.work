@@ -70,6 +70,7 @@ fn requested() -> (World, [u8; 32], Sent) {
         note: "I can take the tests".into(),
         readiness: sw_model::readiness::Readiness::from_permille(1000).unwrap(),
         agent_id: None,
+        invite: None,
     });
     let bob = std::mem::replace(&mut w.bob, World::new().bob);
     let m = w.envelope(&bob, &bob.controller, Audience::Node, request);

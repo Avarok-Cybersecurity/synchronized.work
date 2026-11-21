@@ -121,6 +121,11 @@ impl Daemon {
             }
             Ok(SwMessage::Unsigned(Payload::Notify(n))) => {
                 log::info!("notify {}: {}", n.kind, crate::frame::sanitize(&n.subject));
+                self.on_notify(&n);
+                return;
+            }
+            Ok(SwMessage::Unsigned(Payload::JoinPending(j))) if j.requests.is_some() => {
+                self.on_join_pending(j);
                 return;
             }
             Ok(SwMessage::Unsigned(Payload::PadDirectory(d))) if d.members.is_some() => {

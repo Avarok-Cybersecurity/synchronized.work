@@ -10,6 +10,12 @@ repository.workspace = true
 # library.
 publish = false
 
+[features]
+# OpenSSL (which the SDK's citadel_wire links) built from source and linked statically, so a
+# released binary runs on a machine without the build host's OpenSSL. The release workflow
+# builds with it; a local build links the system's.
+vendored-openssl = ["dep:openssl"]
+
 [[bin]]
 name = "sw-mcp"
 path = "src/main.rs"
@@ -36,6 +42,7 @@ getrandom.workspace = true
 futures.workspace = true
 zeroize.workspace = true
 log.workspace = true
+openssl = { version = "0.10.82", features = ["vendored"], optional = true }
 
 [dev-dependencies]
 sw-testkit.workspace = true

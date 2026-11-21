@@ -177,12 +177,26 @@ pub fn open_up(id: &str) -> Payload {
     })
 }
 
-pub fn join(id: &str) -> Payload {
+pub fn join(id: &str, invite: Option<[u8; 32]>) -> Payload {
     Payload::JoinRequest(JoinRequest {
         task_id: id.into(),
         note: "let me help".into(),
         readiness: sw_model::readiness::Readiness::from_permille(1000).unwrap(),
         agent_id: None,
+        invite,
+    })
+}
+
+/// The owner's invite for `token`, live for an hour of wall-clock time.
+pub fn invite(project: &str, token: &[u8; 32]) -> Payload {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    Payload::Invite(Invite {
+        project: project.into(),
+        token_hash: sw_protocol::invite::token_hash(token),
+        exp: now + 3_600_000,
     })
 }
 

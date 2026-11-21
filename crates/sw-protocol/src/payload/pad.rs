@@ -182,7 +182,9 @@ wire_text! {
 }
 
 wire_text! {
-    /// 22 `PAD_RECEIPT`, unsigned, node → sender: whether a 18/19 was stored.
+    /// 22 `PAD_RECEIPT`, unsigned, node → sender: whether a write was stored. Sent for every
+    /// scratchpad write (18, 19) and every write of the onboarding path (8, 9, 10, 20, 23), so
+    /// the writer learns of a refusal; `project` is the project the write named, or its id.
     pub struct PadReceipt {
         project: String,
         id: [u8; 32],

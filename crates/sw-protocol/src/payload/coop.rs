@@ -11,16 +11,19 @@ use crate::wire::{wire_str, wire_text};
 
 wire_text! {
     /// 8 `JOIN_REQUEST`: Endpoint-signed. `note` at most 280 bytes; `readiness` permille.
+    /// A request to join a project (its root Task) spends an invite token (type 23); a
+    /// request for any other Task carries none.
     pub struct JoinRequest {
         task_id: String,
         note: String,
         readiness: Readiness,
         agent_id: Option<String>,
+        invite: Option<[u8; 32]>,
     }
 }
 
 wire_text! {
-    /// 9 `JOIN_ANSWER`: signed by the owner's Controller key.
+    /// 9 `JOIN_ANSWER`: signed by one of the Task owner's Endpoints.
     pub struct JoinAnswer {
         request_id: [u8; 32],
         accept: bool,

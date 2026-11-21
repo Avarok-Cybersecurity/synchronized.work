@@ -75,6 +75,12 @@ fn guidance(kind: EventKind, trust: Trust) -> &'static str {
         (EventKind::Refused, _) => {
             "The synchronized.work node refused a note or acknowledgement you sent. Tell your user."
         }
+        (EventKind::JoinRequested, _) => {
+            "Someone spent an invite to a project your user owns and asks to join it. Tell your user; only your user decides. List the requests with project_join_requests (or `sw-mcp join list`), and answer one with project_join_answer only on your user's explicit instruction."
+        }
+        (EventKind::Joined, _) => {
+            "A person was admitted to a project (your user, or someone joining your user's project). Tell your user; scratchpad_members now lists them."
+        }
     }
 }
 
@@ -105,6 +111,14 @@ pub fn render(state: &PadState, rec: &EventRec, own_id_fp: &str) -> Option<PadEv
                 a.at,
             )
         }
+        EventKind::JoinRequested | EventKind::Joined => (
+            rec.subject.clone().unwrap_or_default(),
+            None,
+            rec.detail.clone().unwrap_or_default(),
+            vec![],
+            None,
+            0,
+        ),
         EventKind::Refused => {
             let sent = state
                 .sent

@@ -8,8 +8,7 @@ use serde_json::json;
 use super::inputs::SignInCompleteInput;
 use super::{SwServer, reply};
 use crate::adapters::OsEntropy;
-use crate::ipc::{Request, call_async};
-use crate::signin::{self, HttpIssuer};
+use crate::signin;
 
 #[tool_router(router = sign_in_router, vis = "pub(super)")]
 impl SwServer {
@@ -46,36 +45,10 @@ impl SwServer {
                 "no sign-in in progress: call sign_in_start first".into()
             ));
         };
-        let keys = match crate::store::load_keys(&self.home) {
-            Ok(k) => k,
-            Err(e) => return reply(Err(e)),
-        };
-        let device = keys.device_label(&self.config.device_slug);
-        let issuer = &self.config.sign_in_issuer;
-        let port = match HttpIssuer::new(issuer, citadel_identity::WELL_KNOWN_FETCH_TIMEOUT_S) {
-            Ok(p) => p,
-            Err(e) => return reply(Err(e)),
-        };
-        let now_s = crate::daemon::now_ms() / 1000;
-        let done = signin::complete_sign_in(
-            &port,
-            &self.home,
-            pending,
-            &input.code,
-            &device,
-            issuer,
-            now_s,
-        )
-        .await;
-        let accepted = match done {
-            Ok(a) => a,
-            Err(e) => return reply(Err(e.to_string())),
-        };
-        *guard = None;
-        let reloaded = call_async(self.home.socket(), Request::Reload, 0).await;
-        reply(Ok(
-            json!({ "signed_in": true, "device": accepted.device, "assertion_exp_s": accepted.exp_s,
-                         "daemon": reloaded.unwrap_or_else(|e| json!({ "not_reloaded": e })) }),
-        ))
+        let done = signin::complete_here(&self.home, &self.config, pending, &input.code).await;
+        if done.is_ok() {
+            *guard = None;
+        }
+        reply(done)
     }
 }
