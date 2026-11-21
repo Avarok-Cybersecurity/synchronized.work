@@ -7,7 +7,7 @@ use citadel_identity::{CanonicalDomain, MlDsa65Pk, canonical_domain};
 
 use sw_model::{Approval, PersonPolicy};
 
-use crate::limits::Limits;
+use crate::limits::{Limits, server_limits};
 
 /// Secrets: never in wrangler.toml, never logged.
 pub const SECRET_SERVER_KEY_SEED: &str = "SW_SERVER_KEY_SEED";
@@ -87,6 +87,7 @@ pub struct Provisioning {
     pub path_policy: citadel_sdk::prelude::PathPolicy,
     pub new_person_policy: PersonPolicy,
     pub limits: Limits,
+    pub server_limits: citadel_sdk::prelude::ServerLimits,
 }
 
 impl std::fmt::Debug for Provisioning {
@@ -97,6 +98,7 @@ impl std::fmt::Debug for Provisioning {
             .field("citadel_wss", &self.citadel_wss)
             .field("sign_in_issuer", &self.sign_in_issuer)
             .field("limits", &self.limits)
+            .field("server_limits", &self.server_limits)
             .finish_non_exhaustive()
     }
 }
@@ -156,6 +158,7 @@ impl Provisioning {
                 rate_per_min: number(source, VAR_PERSON_RATE_PER_MIN)?,
             },
             limits: Limits::from_source(source)?,
+            server_limits: server_limits(source)?,
         })
     }
 }

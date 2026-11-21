@@ -91,4 +91,13 @@ SW_MAX_TASKS = "5000"
 # 50 notes pending per target per project. Retention is each project's PAD_POLICY.
 SW_PAD_RATE_PER_MIN = "10"
 SW_PAD_PENDING_MAX = "50"
+# The SDK's server limits. Before sign-in: 16 connections per address (a NAT's clients share
+# one), 256 in all. Legacy registrations (the server hashing a password) are refused: clients
+# register post-quantum. Queued outbound bytes: the inbox's 4 MiB per stream, 32 MiB in all,
+# a quarter of the 128 MB isolate.
+SW_PROVISIONAL_PER_IP = "16"
+SW_PROVISIONAL_TOTAL = "256"
+SW_LEGACY_REGISTRATION_HASHES = "refused"
+SW_OUTBOUND_QUEUED_PER_STREAM = "4194304"
+SW_OUTBOUND_QUEUED_TOTAL = "33554432"
 LOG_LEVEL = "warn"

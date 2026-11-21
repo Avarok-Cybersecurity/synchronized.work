@@ -45,6 +45,20 @@ pub fn complete() -> Vars {
         (sw_node::limits::VAR_MAX_TASKS, "5000".into()),
         (sw_node::limits::VAR_PAD_RATE_PER_MIN, "10".into()),
         (sw_node::limits::VAR_PAD_PENDING_MAX, "50".into()),
+        (sw_node::limits::VAR_PROVISIONAL_PER_IP, "64".into()),
+        (sw_node::limits::VAR_PROVISIONAL_TOTAL, "256".into()),
+        (
+            sw_node::limits::VAR_LEGACY_REGISTRATION_HASHES,
+            "refused".into(),
+        ),
+        (
+            sw_node::limits::VAR_OUTBOUND_QUEUED_PER_STREAM,
+            "4194304".into(),
+        ),
+        (
+            sw_node::limits::VAR_OUTBOUND_QUEUED_TOTAL,
+            "33554432".into(),
+        ),
     ] {
         m.insert(k, v);
     }

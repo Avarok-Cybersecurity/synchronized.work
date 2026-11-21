@@ -12,8 +12,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use citadel_sdk::prelude::{
-    BackendType, DefaultNodeBuilder, ServerMiscSettings, WebSocketEndpoint,
+    BackendType, CertVerification, DefaultNodeBuilder, LinkManagerMode, ServerMiscSettings,
+    WebSocketEndpoint,
 };
+use citadel_sdk::types::crypto::MaxSecurityLevel;
 use citadel_user::credentials::CredentialRequirements;
 use sw_client::{SessionError, SessionPort, SessionState};
 use tokio::sync::{Notify, mpsc};
@@ -29,6 +31,8 @@ pub struct SessionSettings {
     pub backend: BackendType,
     pub reconnect_delay: Duration,
     pub stun_servers: Vec<String>,
+    /// What the session demands of the node's certificate ([`crate::config::Config::cert_verification`]).
+    pub cert_verification: CertVerification,
 }
 
 impl std::fmt::Debug for SessionSettings {
@@ -126,7 +130,10 @@ fn run_node(kernel: SessionKernel, backend: BackendType, stun: Vec<String>) -> R
         .build()
         .map_err(|e| e.to_string())?;
     runtime.block_on(async move {
+        let max_level = MaxSecurityLevel::new(kernel::SESSION_LEVEL).map_err(|e| e.to_string())?;
         let node = DefaultNodeBuilder::default()
+            .with_link_manager(LinkManagerMode::Legacy)
+            .with_max_security_level(max_level)
             .with_backend(backend)
             .with_stun_servers(stun)
             .with_server_misc_settings(v2_account_rules()?)

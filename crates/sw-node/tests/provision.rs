@@ -81,3 +81,35 @@ fn the_well_known_document_is_this_nodes_signed_identity() {
         "deterministic"
     );
 }
+
+#[test]
+fn legacy_registration_is_refused_or_a_positive_count_of_hashes() {
+    use citadel_sdk::prelude::LegacyRegistration;
+    use sw_node::limits::{VAR_LEGACY_REGISTRATION_HASHES, VAR_OUTBOUND_QUEUED_TOTAL};
+    let p = Provisioning::from_source(&complete()).unwrap();
+    assert_eq!(
+        p.server_limits.legacy_registration,
+        LegacyRegistration::Refused
+    );
+    let mut vars = complete();
+    vars.0.insert(VAR_LEGACY_REGISTRATION_HASHES, "2".into());
+    let p = Provisioning::from_source(&vars).unwrap();
+    assert!(matches!(
+        p.server_limits.legacy_registration,
+        LegacyRegistration::Accepted { concurrent_hashes } if concurrent_hashes.get() == 2
+    ));
+    for (name, zero) in [
+        (VAR_LEGACY_REGISTRATION_HASHES, "0"),
+        (VAR_OUTBOUND_QUEUED_TOTAL, "0"),
+    ] {
+        let mut vars = complete();
+        vars.0.insert(name, zero.into());
+        assert!(
+            matches!(
+                Provisioning::from_source(&vars),
+                Err(ProvisionError::Malformed { name: n, .. }) if n == name
+            ),
+            "{name} = 0"
+        );
+    }
+}

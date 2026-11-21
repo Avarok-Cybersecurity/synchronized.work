@@ -68,7 +68,9 @@ async fn two_people_sign_in_enrol_and_the_owner_is_told_of_a_join_request() {
         sw_node::start::configure(builder, &provisioning, BackendType::InMemory).unwrap();
     });
 
-    let client = DefaultNodeBuilder::default()
+    let client = citadel_sdk::test_common::node_builder()
+        .with_link_manager(LinkManagerMode::Legacy)
+        .with_max_security_level(citadel_sdk::test_common::localhost_max_security_level())
         .with_stun_servers(LOCALHOST_STUN_SERVERS)
         .build(ClientKernel::new(move |remote| async move {
             let mut alice = Client::sign_in(&remote, addr, Account::alice()).await?;
