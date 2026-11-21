@@ -21,21 +21,30 @@ rustflags() {
   echo "RUSTFLAGS=--remap-path-prefix=$root=/sw --remap-path-prefix=$cargo_home=/cargo"
 }
 
+# Prints a tool's whole report, then fails if it matches. The report is captured first: piping
+# it through `tee /dev/stderr | grep -q` hid every match (Git Bash has no /dev/stderr, and under
+# pipefail a failing tee, or grep -q closing the pipe early, sent the match to `|| true`).
+refuse_match() {
+  local report=$1 pattern=$2 why=$3
+  printf '%s\n' "$report"
+  if grep -qiE "$pattern" <<<"$report"; then echo "::error::$why"; exit 1; fi
+}
+
 check() {
   local version=$1
   [ "$("$bin" --version | tr -d '\r')" = "sw-mcp $version" ] || { "$bin" --version; echo "::error::not sw-mcp $version"; exit 1; }
   case "${RUNNER_OS:-}" in
     macOS)
-      otool -L "$bin" | tee /dev/stderr | grep -qiE 'openssl|libssl|libcrypto|/opt/homebrew|/usr/local' && { echo "::error::links a host library"; exit 1; } || true
-      lipo -archs "$bin" | grep -qx "$([ "$target" = x86_64-apple-darwin ] && echo x86_64 || echo arm64)" ;;
+      refuse_match "$(otool -L "$bin")" 'openssl|libssl|libcrypto|/opt/homebrew|/usr/local' "links a host library"
+      [ "$(lipo -archs "$bin")" = "$([ "$target" = x86_64-apple-darwin ] && echo x86_64 || echo arm64)" ] || { echo "::error::wrong architecture"; exit 1; } ;;
     Windows)
       local vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" dumpbin
       dumpbin="$("$vswhere" -latest -products '*' -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | head -1 | tr -d '\r')"
       [ -n "$dumpbin" ] || { echo "::error::dumpbin.exe not found"; exit 1; }
-      "$dumpbin" -nologo -dependents "$bin" | tee /dev/stderr | grep -qiE 'libssl|libcrypto|openssl' && { echo "::error::links an OpenSSL DLL"; exit 1; } || true
-      "$dumpbin" -nologo -headers "$bin" | grep -q 'machine (x64)' || { echo "::error::not an x64 binary"; exit 1; } ;;
+      refuse_match "$("$dumpbin" -nologo -dependents "$bin")" 'libssl|libcrypto|openssl' "links an OpenSSL DLL"
+      grep -q 'machine (x64)' <<<"$("$dumpbin" -nologo -headers "$bin")" || { echo "::error::not an x64 binary"; exit 1; } ;;
     *)
-      ldd "$bin" | tee /dev/stderr | grep -qiE 'libssl|libcrypto' && { echo "::error::links the host OpenSSL"; exit 1; } || true ;;
+      refuse_match "$(ldd "$bin")" 'libssl|libcrypto' "links the host OpenSSL" ;;
   esac
   # Vendored OpenSSL compiles its own build directory in (ENGINESDIR, MODULESDIR); no rustc flag
   # reaches C, so that one directory, under target/, is allowed. Nothing else is.
