@@ -40,6 +40,16 @@ pub fn cache_control(path: &str) -> Option<&'static str> {
     (path == SERVICE_WORKER_PATH).then_some("no-cache")
 }
 
+/// The Windows installer (`irm https://synchronized.work/install.ps1 | iex`).
+pub const INSTALL_PS1_PATH: &str = "/install.ps1";
+
+/// A `content-type` the Worker sets over the asset binding's own. The binding knows no `.ps1`
+/// type and would answer `application/octet-stream`, which PowerShell's `irm` may hand to `iex`
+/// as bytes rather than as the script.
+pub fn content_type(path: &str) -> Option<&'static str> {
+    (path == INSTALL_PS1_PATH).then_some("text/plain; charset=utf-8")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -79,5 +89,15 @@ mod tests {
         assert_eq!(cache_control("/sw.js.map"), None);
         assert_eq!(cache_control("/assets/sw.js"), None);
         assert_eq!(cache_control("/"), None);
+    }
+
+    #[test]
+    fn only_the_windows_installer_is_typed_as_text() {
+        assert_eq!(
+            content_type("/install.ps1"),
+            Some("text/plain; charset=utf-8")
+        );
+        assert_eq!(content_type("/install.sh"), None);
+        assert_eq!(content_type("/a/install.ps1"), None);
     }
 }

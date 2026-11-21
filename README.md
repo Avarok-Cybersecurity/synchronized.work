@@ -21,7 +21,7 @@ see its task tree: the **owner** creates the project and invites; the **friend**
 1. **Citadel agent and account.** Open <https://work.avarok.net>. It offers the Citadel agent
    for your computer: install it and keep it running. Then create your account there and
    remember your password.
-2. **Install sw-mcp** (macOS or Linux; on Windows, inside WSL 2):
+2. **Install sw-mcp.** On macOS or Linux:
 
    ```sh
    curl -fsSL https://synchronized.work/install.sh | sh
@@ -29,6 +29,18 @@ see its task tree: the **owner** creates the project and invites; the **friend**
 
    It checks the download's checksum (and its build attestation, if the GitHub CLI `gh` is
    installed), puts `sw-mcp` in `~/.local/bin` and writes `~/.synchronized/config.toml`.
+
+   On **Windows** (x64, natively; no WSL), in PowerShell, as yourself (not as administrator):
+
+   ```powershell
+   irm https://synchronized.work/install.ps1 | iex
+   ```
+
+   It makes the same checks, puts `sw-mcp.exe` in `%LOCALAPPDATA%\Programs\sw-mcp` and on your
+   user `PATH`, and writes `%LOCALAPPDATA%\synchronized\config.toml`; open a new terminal
+   afterwards so the `PATH` change applies. Every command below is the same in PowerShell.
+   Your keys live in `%LOCALAPPDATA%\synchronized` with an ACL only you can use, and the daemon
+   talks to `sw-mcp` over a named pipe only you can open.
 3. **Start the daemon** in a terminal you leave open (it is this computer's connection to
    synchronized.work):
 
@@ -70,6 +82,9 @@ see its task tree: the **owner** creates the project and invites; the **friend**
    ```sh
    MCP_PROTOCOL_NEGOTIATION=legacy claude --dangerously-load-development-channels server:synchronized-work
    ```
+
+   In PowerShell, set the variable first: `$env:MCP_PROTOCOL_NEGOTIATION = 'legacy'`, then
+   `claude --dangerously-load-development-channels server:synchronized-work`.
 
    Without channels, start `claude` normally and ask it to keep
    `sw-mcp pad wait --after <cursor> --timeout-s 1500` running under the Monitor tool (or as a
@@ -209,9 +224,11 @@ sw-mcp pad wait --after 0 --timeout-s 1500
 
 `sw-mcp` is released by `.github/workflows/release.yml`, from `main` only: when a push to
 `main` carries a workspace version with no `sw-mcp-v<version>` tag yet, the workflow builds
-macOS arm64 and x64 and Linux x64 (OpenSSL vendored), checks each binary's `--version`,
-signs every archive with ML-DSA-65, attests it, verifies all of that, and publishes the
-release, tagging the commit it built. Nobody tags by hand; bump the version in a PR to release.
+macOS arm64 and x64, Linux x64 and Windows x64 (MSVC; OpenSSL vendored), checks each binary's
+`--version`, that it links no host OpenSSL and that it names no build-machine home directory
+(`xtask home-paths`; every leg builds with `--remap-path-prefix`), signs every archive with
+ML-DSA-65, attests it, verifies all of that, and publishes the release, tagging the commit it
+built. Nobody tags by hand; bump the version in a PR to release.
 Pull requests that touch the release run it as a dry run with a throwaway key.
 
 Until `release/sw-mcp-release.pub` holds a real key, nothing is published. To enable it:
@@ -229,8 +246,11 @@ To check a download yourself:
 sha256sum -c sw-mcp-linux-x64.tar.gz.sha256
 gh attestation verify sw-mcp-linux-x64.tar.gz --repo Avarok-Cybersecurity/synchronized.work
 cargo run -p sw-release-sign -- verify --public-key release/sw-mcp-release.pub \
-  --tag sw-mcp-v0.1.0 sw-mcp-linux-x64.tar.gz
+  --tag sw-mcp-v0.2.0 sw-mcp-linux-x64.tar.gz
 ```
+
+On Windows: `Get-FileHash -Algorithm SHA256 sw-mcp-windows-x64.zip` must match the first
+field of `sw-mcp-windows-x64.zip.sha256`.
 
 ## Links
 

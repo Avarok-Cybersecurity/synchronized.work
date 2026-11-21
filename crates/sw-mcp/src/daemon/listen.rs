@@ -1,53 +1,46 @@
-//! The socket side of [`crate::ipc`]: accept, read one request line, hand it to the daemon's
+//! The daemon's side of [`crate::ipc`]: accept, read one request line, hand it to the daemon's
 //! task with a reply channel, write the one answer line.
 
-use std::os::unix::fs::PermissionsExt as _;
-use std::path::Path;
+use std::time::Duration;
 
 use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _, BufReader};
-use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::ipc::{Reply, Request};
+use crate::ipc::transport::Conn;
+use crate::ipc::{Listener, Reply, Request, Transport};
 
 /// The longest request line accepted (a progress line or a feed request is far shorter).
 const MAX_REQUEST_BYTES: usize = 64 * 1024;
 
 pub(super) type Inbound = mpsc::UnboundedSender<(Request, oneshot::Sender<Reply>)>;
 
-/// Binds the socket (0600) and serves it on a task. Refuses to start if another daemon is
-/// already answering on it.
-pub(super) fn bind(path: &Path, to_daemon: Inbound) -> Result<(), String> {
-    if std::os::unix::net::UnixStream::connect(path).is_ok() {
-        return Err(format!(
-            "another sw-mcp daemon is already running ({})",
-            path.display()
-        ));
-    }
-    crate::home::remove_if_present(path).map_err(|e| e.to_string())?;
-    let listener = UnixListener::bind(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-        .map_err(|e| e.to_string())?;
+/// Binds the endpoint (owner-only, [`Transport::bind`]) and serves it on a task. Refuses to
+/// start if another daemon is already answering on it.
+pub(super) fn bind<T: Transport>(endpoint: &T, to_daemon: Inbound) -> Result<(), String> {
+    let mut listener = endpoint.bind()?;
     tokio::spawn(async move {
         loop {
             match listener.accept().await {
-                Ok((stream, _)) => {
+                Ok(stream) => {
                     let to_daemon = to_daemon.clone();
                     tokio::spawn(async move {
                         if let Err(e) = serve_one(stream, to_daemon).await {
-                            log::warn!("socket client: {e}");
+                            log::warn!("ipc client: {e}");
                         }
                     });
                 }
-                Err(e) => log::error!("socket accept: {e}"),
+                Err(e) => {
+                    log::error!("ipc accept: {e}");
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
             }
         }
     });
     Ok(())
 }
 
-async fn serve_one(stream: UnixStream, to_daemon: Inbound) -> Result<(), String> {
-    let (read, mut write) = stream.into_split();
+async fn serve_one(stream: impl Conn, to_daemon: Inbound) -> Result<(), String> {
+    let (read, mut write) = tokio::io::split(stream);
     let mut line = String::new();
     let mut reader = BufReader::new(read).take(MAX_REQUEST_BYTES as u64);
     reader

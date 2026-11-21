@@ -1,9 +1,8 @@
-//! The `log` facade to `log/sw-mcp.log` (0600) and stderr (never stdout: `serve` speaks MCP
+//! The `log` facade to `log/sw-mcp.log` (owner-only) and stderr (never stdout: `serve` speaks MCP
 //! there). Kids appear as 8-hex prefixes and prompt text never does (design §6.8).
 
 use std::fs::OpenOptions;
 use std::io::Write as _;
-use std::os::unix::fs::OpenOptionsExt as _;
 use std::sync::Mutex;
 
 use crate::config::LogLevel;
@@ -51,12 +50,11 @@ pub fn init(home: &Home, level: LogLevel) -> Result<(), String> {
         LogLevel::Info => log::LevelFilter::Info,
         LogLevel::Debug => log::LevelFilter::Debug,
     };
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .mode(0o600)
-        .open(home.log_file())
-        .map_err(|e| format!("{}: {e}", home.log_file().display()))?;
+    let file = crate::home::open_private(
+        OpenOptions::new().create(true).append(true),
+        &home.log_file(),
+    )
+    .map_err(|e| format!("{}: {e}", home.log_file().display()))?;
     log::set_boxed_logger(Box::new(Logger {
         level,
         file: Mutex::new(file),

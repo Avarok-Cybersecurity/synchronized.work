@@ -55,7 +55,7 @@ pub(crate) fn confirm(prompt: &str) -> Result<bool, String> {
 
 /// Tells a running daemon to re-read its files; a stopped one reads them when it starts.
 fn reload(home: &Home) {
-    match call(&home.socket(), &Request::Reload, 0) {
+    match call(home.ipc(), &Request::Reload, 0) {
         Ok(_) => println!("the daemon has the new allowlist"),
         Err(e) => println!("{e}; it will read the allowlist when it starts"),
     }
@@ -130,7 +130,7 @@ pub fn gate(home: &Home, cmd: GateCmd) -> Result<(), String> {
         GateCmd::Approve { signal_id } => Request::GateApprove { signal_id },
         GateCmd::Refuse { signal_id } => Request::GateRefuse { signal_id },
     };
-    let answer: Value = call(&home.socket(), &request, 0)?;
+    let answer: Value = call(home.ipc(), &request, 0)?;
     println!(
         "{}",
         serde_json::to_string_pretty(&answer).map_err(|e| e.to_string())?

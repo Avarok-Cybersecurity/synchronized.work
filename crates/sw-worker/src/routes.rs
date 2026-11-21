@@ -59,6 +59,9 @@ fn secured(response: Response, path: &str) -> Result<Response> {
     if let Some(value) = fallback::cache_control(path) {
         headers.set("cache-control", value)?;
     }
+    if let Some(value) = fallback::content_type(path) {
+        headers.set("content-type", value)?;
+    }
     Ok(response.with_headers(headers))
 }
 

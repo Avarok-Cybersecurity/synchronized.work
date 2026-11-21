@@ -57,7 +57,7 @@ pub enum JoinCmd {
 }
 
 fn ask(home: &Home, request: Request) -> Result<(), String> {
-    let v: Value = call(&home.socket(), &request, pad_ask_timeout_s())?;
+    let v: Value = call(home.ipc(), &request, pad_ask_timeout_s())?;
     println!(
         "{}",
         serde_json::to_string_pretty(&v).map_err(|e| e.to_string())?

@@ -1,13 +1,28 @@
-//! The daemon's Unix socket (design §9: 0600, never TCP). One JSON request line, one JSON
-//! answer line, per connection. `serve`, `hook`, `gate`, `trust` and `revoke` are clients.
+//! The daemon's local endpoint (design §9: owner-only, never TCP), over [`transport`]: a Unix
+//! socket (0600) or, on Windows, a named pipe only this user can open. One JSON request line,
+//! one JSON answer line, per connection. `serve`, `hook`, `gate`, `trust` and `revoke` are
+//! clients.
 
-use std::io::{BufRead as _, BufReader, Write as _};
-use std::os::unix::net::UnixStream;
-use std::path::Path;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
+
+pub mod transport;
+#[cfg(unix)]
+mod unix;
+#[cfg(windows)]
+mod windows;
+
+pub use transport::{Listener, Transport};
+
+/// This platform's endpoint.
+#[cfg(unix)]
+pub type Endpoint = unix::UnixSocket;
+/// This platform's endpoint.
+#[cfg(windows)]
+pub type Endpoint = windows::NamedPipe;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -176,40 +191,49 @@ impl Reply {
 /// Seconds a client waits for an answer beyond what the request itself may block for.
 pub const ANSWER_GRACE_S: u64 = 5;
 
-/// Sends one request and reads its answer. `blocks_for_s` is how long the daemon may hold the
-/// request open (`await_signal`); the read times out after that plus [`ANSWER_GRACE_S`].
-pub fn call(socket: &Path, request: &Request, blocks_for_s: u64) -> Result<Value, String> {
-    let mut stream = UnixStream::connect(socket).map_err(|e| {
-        format!(
+/// Sends one request and reads its answer, from synchronous code (the CLI and the hook).
+/// `blocks_for_s` is how long the daemon may hold the request open (`await_signal`); the read
+/// times out after that plus [`ANSWER_GRACE_S`]. Async code calls [`call_async`].
+pub fn call(endpoint: &Endpoint, request: &Request, blocks_for_s: u64) -> Result<Value, String> {
+    if tokio::runtime::Handle::try_current().is_ok() {
+        return Err("ipc::call from inside an async runtime; use ipc::call_async".into());
+    }
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?
+        .block_on(call_async(endpoint.clone(), request.clone(), blocks_for_s))
+}
+
+/// One request and its answer over `endpoint`; see [`call`].
+pub async fn call_async<T: Transport>(
+    endpoint: T,
+    request: Request,
+    blocks_for_s: u64,
+) -> Result<Value, String> {
+    let stream = endpoint.connect().await.map_err(|e| match e.kind() {
+        std::io::ErrorKind::PermissionDenied => format!("refusing {}: {e}", endpoint.describe()),
+        _ => format!(
             "the sw-mcp daemon is not running ({}: {e}); start it with `sw-mcp daemon`",
-            socket.display()
-        )
+            endpoint.describe()
+        ),
     })?;
-    let wait = Duration::from_secs(blocks_for_s.saturating_add(ANSWER_GRACE_S));
-    stream
-        .set_read_timeout(Some(wait))
-        .map_err(|e| e.to_string())?;
-    let mut line = serde_json::to_string(request).map_err(|e| e.to_string())?;
+    // The write half stays open until the answer is read: the daemon takes a hang-up as the
+    // client giving up.
+    let (read, mut write) = tokio::io::split(stream);
+    let mut line = serde_json::to_string(&request).map_err(|e| e.to_string())?;
     line.push('\n');
-    stream
+    write
         .write_all(line.as_bytes())
+        .await
         .map_err(|e| e.to_string())?;
+    let wait = Duration::from_secs(blocks_for_s.saturating_add(ANSWER_GRACE_S));
     let mut answer = String::new();
-    BufReader::new(stream)
-        .read_line(&mut answer)
+    tokio::time::timeout(wait, BufReader::new(read).read_line(&mut answer))
+        .await
+        .map_err(|_| format!("no answer from the daemon within {}s", wait.as_secs()))?
         .map_err(|e| format!("no answer from the daemon: {e}"))?;
     let reply: Reply =
         serde_json::from_str(&answer).map_err(|e| format!("the daemon's answer: {e}"))?;
     reply.into_result()
-}
-
-/// `call` from async code, on the blocking pool.
-pub async fn call_async(
-    socket: std::path::PathBuf,
-    request: Request,
-    blocks_for_s: u64,
-) -> Result<Value, String> {
-    tokio::task::spawn_blocking(move || call(&socket, &request, blocks_for_s))
-        .await
-        .map_err(|e| e.to_string())?
 }

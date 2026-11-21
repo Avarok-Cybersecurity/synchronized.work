@@ -144,7 +144,8 @@ async fn daemon(home: Home, config: Config) -> Result<(), String> {
     sw_mcp::logging::init(&home, config.log_level)?;
     match config.keystore {
         KeyStoreKind::File => log::warn!(
-            "keystore = \"file\": Device keys and the Citadel password are protected by file permissions (0600) only"
+            "keystore = \"file\": Device keys and the Citadel password are protected by {} only",
+            sw_mcp::home::PROTECTION
         ),
     }
     sw_mcp::daemon::Daemon::open(home, config)?.run().await

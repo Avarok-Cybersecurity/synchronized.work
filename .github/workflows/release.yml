@@ -1,12 +1,15 @@
 # Builds and publishes sw-mcp, so a person can install it without Rust:
-#   curl -fsSL https://synchronized.work/install.sh | sh
-# links /releases/latest/download/<asset>, so the ASSET NAMES below are a contract with
-# site/public/install.sh (one `release-download:` line each; publish checks every one).
+#   curl -fsSL https://synchronized.work/install.sh | sh                       (macOS, Linux)
+#   irm https://synchronized.work/install.ps1 | iex                            (Windows)
+# Both link /releases/latest/download/<asset>: the ASSET NAMES below are a contract with
+# site/public/install.{sh,ps1} (one `release-download:` line each; publish checks every one).
 #   release-download: sw-mcp-macos-arm64.tar.gz
 #   release-download: sw-mcp-macos-x64.tar.gz
 #   release-download: sw-mcp-linux-x64.tar.gz
-# No native Windows build: the daemon's socket is a Unix socket (0600) and its key files rely on
-# Unix modes. On Windows, the Linux build runs inside WSL 2.
+#   release-download: sw-mcp-windows-x64.zip
+# Windows is native (no WSL): a named pipe and key files only this user can open (sw-winacl).
+# NO BUILD-MACHINE PATH SHIPS: each leg builds with --remap-path-prefix (tools/release-binary.sh)
+# and `xtask home-paths` refuses a binary that still names a home directory.
 #
 # RELEASES ARE TAGGED FROM MAIN ONLY, by this workflow, never by hand. On a push to main, the
 # version is the workspace's (Cargo.toml [workspace.package]); if `sw-mcp-v<version>` is not
@@ -31,7 +34,11 @@ on:
       - tools/sw-release-sign/**
       - release/**
       - site/public/install.sh
+      - site/public/install.ps1
+      - tools/release-binary.sh
       - crates/sw-mcp/Cargo.toml
+      - crates/sw-winacl/**
+      - tools/xtask/src/home_paths.rs
   workflow_dispatch:
 
 permissions:
@@ -120,33 +127,26 @@ jobs:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             asset: sw-mcp-linux-x64.tar.gz
+          # MSVC; OpenSSL vendored (Strawberry Perl, no NASM: built with no-asm).
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            asset: sw-mcp-windows-x64.zip
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install && rustup target add ${{ matrix.target }}
+      - name: Map the checkout and cargo's home out of the binary (--remap-path-prefix)
+        shell: bash
+        run: tools/release-binary.sh rustflags "${{ matrix.target }}" >> "$GITHUB_ENV"
+      # Windows runs this in PowerShell, whose PATH finds Strawberry Perl (OpenSSL's build needs
+      # it; Git Bash's MSYS perl cannot build it for MSVC).
       - name: Build sw-mcp (OpenSSL vendored and linked statically)
         run: cargo build --release --locked --target ${{ matrix.target }} -p sw-mcp --features vendored-openssl
-      - name: The binary is this version and links no OpenSSL from the build host
+      - name: The binary is this version, links no host OpenSSL and names no home directory
         shell: bash
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          bin=target/${{ matrix.target }}/release/sw-mcp
-          [ "$("$bin" --version)" = "sw-mcp $VERSION" ] || { "$bin" --version; echo "::error::not sw-mcp $VERSION"; exit 1; }
-          if [ "$RUNNER_OS" = macOS ]; then
-            otool -L "$bin" | tee /dev/stderr | grep -qiE 'openssl|libssl|libcrypto|/opt/homebrew|/usr/local' && { echo "::error::links a host library"; exit 1; } || true
-            lipo -archs "$bin" | grep -qx "$([ ${{ matrix.target }} = x86_64-apple-darwin ] && echo x86_64 || echo arm64)"
-          else
-            ldd "$bin" | tee /dev/stderr | grep -qiE 'libssl|libcrypto' && { echo "::error::links the host OpenSSL"; exit 1; } || true
-          fi
+        run: tools/release-binary.sh check ${{ matrix.target }} ${{ needs.version.outputs.version }}
       - name: Package
         shell: bash
-        run: |
-          set -euo pipefail
-          staging="$(mktemp -d)"
-          cp target/${{ matrix.target }}/release/sw-mcp release/config.toml release/README.txt LICENSE-MIT LICENSE-APACHE "$staging/"
-          tar -czf "${{ matrix.asset }}" -C "$staging" .
-          shasum -a 256 "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
+        run: tools/release-binary.sh package ${{ matrix.target }} ${{ matrix.asset }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
@@ -189,8 +189,8 @@ jobs:
             "$tool" keygen --private-key "$keys/private" --public-key "$keys/public"
             public="$keys/public"
           fi
-          mapfile -t assets < <(find dist -maxdepth 1 -name '*.tar.gz' | sort)
-          [ "${#assets[@]}" -eq 3 ] || { echo "::error::expected 3 archives: ${assets[*]}"; exit 1; }
+          mapfile -t assets < <(find dist -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+          [ "${#assets[@]}" -eq 4 ] || { echo "::error::expected 4 archives: ${assets[*]}"; exit 1; }
           (cd dist && sha256sum -c ./*.sha256)
           "$tool" sign --private-key "$keys/private" --tag "$tag" "${assets[@]}"
           "$tool" verify --public-key "$public" --tag "$tag" "${assets[@]}"
@@ -222,7 +222,7 @@ jobs:
         run: |
           set -euo pipefail
           names="$(sed -n 's/^#   release-download: //p' .github/workflows/release.yml)"
-          [ "$(printf '%s\n' "$names" | grep -c .)" -eq 3 ] || { echo "::error::the release-download list was not read"; exit 1; }
+          [ "$(printf '%s\n' "$names" | grep -c .)" -eq 4 ] || { echo "::error::the release-download list was not read"; exit 1; }
           for n in $names; do
             for f in "$n" "$n.sha256" "$n.mldsa.sig"; do [ -f "dist/$f" ] || { echo "::error::dist/$f is missing"; exit 1; }; done
           done
@@ -231,11 +231,13 @@ jobs:
           [ -z "$keys" ] || { echo "::error::key files among the assets: $keys"; exit 1; }
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-path: dist/*.tar.gz
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
       - name: Verify the attestations
         env:
           GH_TOKEN: ${{ github.token }}
-        run: for f in dist/*.tar.gz; do gh attestation verify "$f" --repo "$GITHUB_REPOSITORY"; done
+        run: for f in dist/*.tar.gz dist/*.zip; do gh attestation verify "$f" --repo "$GITHUB_REPOSITORY"; done
       - name: Tag this main commit and publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -245,4 +247,4 @@ jobs:
           [[ "$TAG" =~ ^sw-mcp-v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::not a release tag: $TAG"; exit 1; }
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "sw-mcp ${TAG#sw-mcp-}" \
-            --notes "The synchronized.work MCP. Install with: curl -fsSL https://synchronized.work/install.sh | sh  (macOS arm64/x64, Linux x64; on Windows use WSL 2). Each archive has a .sha256, an ML-DSA-65 signature (.mldsa.sig, verify with tools/sw-release-sign against release/sw-mcp-release.pub) and a build attestation: gh attestation verify <file> --repo ${GITHUB_REPOSITORY}"
+            --notes "The synchronized.work MCP. Install with: curl -fsSL https://synchronized.work/install.sh | sh  (macOS arm64/x64, Linux x64), or on Windows x64 in PowerShell: irm https://synchronized.work/install.ps1 | iex Each archive has a .sha256, an ML-DSA-65 signature (.mldsa.sig, verify with tools/sw-release-sign against release/sw-mcp-release.pub) and a build attestation: gh attestation verify <file> --repo ${GITHUB_REPOSITORY}"

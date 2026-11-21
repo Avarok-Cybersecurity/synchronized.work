@@ -5,7 +5,6 @@
 //! `scratchpad_ack` is the acknowledgement. The permission-relay capability is never declared:
 //! a colleague must not be able to approve tool use here.
 
-use std::path::PathBuf;
 use std::time::Duration;
 
 use rmcp::model::{CustomNotification, JsonObject, ServerNotification};
@@ -54,7 +53,7 @@ pub fn params(event: &Value) -> Value {
 
 /// Streams events to the client until the transport closes. Starts at cursor 0, so every
 /// note still waiting for an ack is pushed again when a session starts.
-pub async fn push_loop(peer: Peer<RoleServer>, socket: PathBuf) {
+pub async fn push_loop(peer: Peer<RoleServer>, socket: crate::ipc::Endpoint) {
     let mut after = 0u64;
     loop {
         let request = Request::PadWait {

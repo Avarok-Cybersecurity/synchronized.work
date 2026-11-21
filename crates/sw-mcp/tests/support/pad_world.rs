@@ -212,7 +212,7 @@ impl Drop for Running {
 }
 
 pub async fn ask(home: &Home, r: Request, blocks_for_s: u64) -> Result<Json, String> {
-    call_async(home.socket(), r, blocks_for_s).await
+    call_async(home.ipc().clone(), r, blocks_for_s).await
 }
 
 /// Retries `r` until it answers Ok and `done` accepts it, within `secs`.

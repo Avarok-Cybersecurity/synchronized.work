@@ -3,6 +3,7 @@
 mod budget;
 mod conformance;
 mod file_length;
+mod home_paths;
 mod node_budget;
 mod pin;
 mod plan;
@@ -31,7 +32,8 @@ fn main() -> ExitCode {
         Some("size") => size::run(&root, &args[1..]),
         Some("site-size") => size::site(&root, &args[1..]),
         Some("node-budget") => node_budget::run(&root, &args[1..]),
-        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>] | plan | seal-kat | size <dir> | site-size <dir> | node-budget <measure.json>>".to_owned()),
+        Some("home-paths") => home_paths::run(&args[1..]),
+        _ => Err("usage: xtask <file-length | sbio | conformance [--mirror <dir> | --repin <dir> <rev>] | plan | seal-kat | size <dir> | site-size <dir> | node-budget <measure.json> | home-paths [--allow-under <dir>]... <file>...>".to_owned()),
     };
     match result {
         Ok(verdict) => {
