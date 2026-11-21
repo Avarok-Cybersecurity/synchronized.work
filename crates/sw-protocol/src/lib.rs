@@ -17,6 +17,7 @@ mod error;
 pub mod gate;
 mod model_wire;
 pub mod p2p;
+pub mod pad;
 pub mod payload;
 pub mod ports;
 pub mod record;

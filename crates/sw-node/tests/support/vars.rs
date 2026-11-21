@@ -43,6 +43,8 @@ pub fn complete() -> Vars {
         (sw_node::limits::VAR_INBOX_MAX_BYTES, "4194304".into()),
         (sw_node::limits::VAR_MAX_PERSONS, "200".into()),
         (sw_node::limits::VAR_MAX_TASKS, "5000".into()),
+        (sw_node::limits::VAR_PAD_RATE_PER_MIN, "10".into()),
+        (sw_node::limits::VAR_PAD_PENDING_MAX, "50".into()),
     ] {
         m.insert(k, v);
     }

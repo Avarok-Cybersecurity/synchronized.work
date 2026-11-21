@@ -4,9 +4,11 @@
 
 mod assertion;
 mod checks;
+mod pad;
 mod types;
 
 pub use assertion::{AssertionRefusal, SIGN_IN_AUDIENCES};
+pub use pad::{BoundDevice, verify_pad, verify_proof};
 pub use types::{KeyDirectory, KeyEntry, KeyRole, Refusal, Verified, Verifier};
 
 use sw_crypto::verify_signature;

@@ -4361,6 +4361,7 @@ dependencies = [
  "sw-testkit",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "zeroize",
 ]
 
 [[package]]

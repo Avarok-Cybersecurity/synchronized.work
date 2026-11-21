@@ -54,7 +54,11 @@ impl NodeCore {
             verifier,
             now_ms,
         )?;
-        let mut effects = self.signed(cid, &verified, bytes, now_ms)?;
+        let mut effects = match self.signed(cid, &verified, bytes, now_ms) {
+            Ok(effects) => effects,
+            Err(NodeRefusal::Pad(r)) => return self.pad_refused(&verified, r),
+            Err(e) => return Err(e),
+        };
         self.replay = scratch;
         effects.push(Effect::Put {
             key: seq_key(&verified.kid),
@@ -69,9 +73,12 @@ impl NodeCore {
                 self.greeted.insert(cid);
                 Ok(Vec::new())
             }
-            p @ (Payload::Presence(_) | Payload::Event(_) | Payload::Notify(_)) => {
-                Err(NodeRefusal::NotForTheNode(p.typ()))
-            }
+            Payload::PadDirectory(d) if d.members.is_none() => self.pad_directory(cid, &d.project),
+            p @ (Payload::Presence(_)
+            | Payload::Event(_)
+            | Payload::Notify(_)
+            | Payload::PadDirectory(_)
+            | Payload::PadReceipt(_)) => Err(NodeRefusal::NotForTheNode(p.typ())),
             p => Err(NodeRefusal::Unsupported(p.typ())),
         }
     }
@@ -94,7 +101,15 @@ impl NodeCore {
                 let value = sw_protocol::record::record_to_bytes(&record)?;
                 let key = person_key(&record.id_fp);
                 self.directory.put(record);
-                return Ok(vec![Effect::Put { key, value }]);
+                let mut effects = vec![Effect::Put { key, value }];
+                if v.sign_in.is_some() && e.kind == Some(EndpointKind::Device) {
+                    self.pad.proofs.insert(v.body.from, bytes.to_vec());
+                    effects.push(Effect::Put {
+                        key: super::pad::ledger::proof_key(v.body.from),
+                        value: bytes.to_vec(),
+                    });
+                }
+                return Ok(effects);
             }
             Payload::TaskWrite(w) => {
                 let dir = &self.directory;
@@ -118,6 +133,9 @@ impl NodeCore {
                 return Ok(effects);
             }
             Payload::ProgressTail(_) => return Err(NodeRefusal::NotForTheNode(17)),
+            Payload::PadNote(n) => return self.pad_note(v, n, bytes, now_ms),
+            Payload::PadAck(a) => return self.pad_ack(v, a, bytes, now_ms),
+            Payload::PadPolicy(p) => return self.pad_policy(v, p),
             p => return Err(NodeRefusal::Unsupported(p.typ())),
         };
         self.apply_change(change, now_ms)
@@ -162,6 +180,16 @@ impl NodeCore {
             });
         }
         Ok(effects)
+    }
+
+    /// A scratchpad refusal is answered to its writer; nothing was stored or burnt.
+    fn pad_refused(&self, v: &Verified, r: super::PadRefusal) -> Result<Vec<Effect>, NodeRefusal> {
+        let project = match &v.body.payload {
+            Payload::PadNote(n) => &n.project,
+            Payload::PadAck(a) => &a.project,
+            _ => return Err(NodeRefusal::Pad(r)),
+        };
+        Ok(vec![Self::pad_receipt(v.body.from, project, v, Some(r))?])
     }
 
     fn apply_change(&mut self, change: Change, now_ms: u64) -> Result<Vec<Effect>, NodeRefusal> {

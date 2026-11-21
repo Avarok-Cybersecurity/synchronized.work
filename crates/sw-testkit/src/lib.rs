@@ -13,6 +13,7 @@ mod entropy;
 mod identity;
 pub mod kat;
 mod model;
+pub mod pad;
 pub mod sign_in_kat;
 
 pub use cast::{Cast, Directory, FIXTURE_NOW_MS};

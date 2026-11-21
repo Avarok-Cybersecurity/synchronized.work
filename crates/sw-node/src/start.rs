@@ -93,7 +93,10 @@ pub async fn prepare<S: NodeStore, C: Clock + Send + Sync + 'static>(
         limits: p.limits,
         new_person_policy: p.new_person_policy,
     });
-    for (key, value) in store.load_all().await.map_err(StartError::Store)? {
+    let mut stored = store.load_all().await.map_err(StartError::Store)?;
+    // Sorted, so an entry is loaded before the keys nested under it (a note before its acks).
+    stored.sort();
+    for (key, value) in stored {
         core.load(&key, &value).map_err(StartError::Load)?;
     }
     Ok(SwKernel::new(core, store, clock))

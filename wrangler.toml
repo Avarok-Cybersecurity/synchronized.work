@@ -87,4 +87,8 @@ SW_INBOX_MAX_SIGNALS = "1000"
 SW_INBOX_MAX_BYTES = "4194304"
 SW_MAX_PERSONS = "200"
 SW_MAX_TASKS = "5000"
+# The developer scratchpad (owner decision 2026-11-16): 10 notes or acks a minute per Person,
+# 50 notes pending per target per project. Retention is each project's PAD_POLICY.
+SW_PAD_RATE_PER_MIN = "10"
+SW_PAD_PENDING_MAX = "50"
 LOG_LEVEL = "warn"

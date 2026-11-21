@@ -68,7 +68,7 @@ fn unknown_and_missing_keys_are_refused() {
 #[test]
 fn unknown_type_and_both_slots_are_refused() {
     let bytes = encode(&Value::Map(vec![
-        (1.into(), 18.into()),
+        (1.into(), 23.into()),
         (2.into(), hello().to_value()),
     ]))
     .unwrap();
