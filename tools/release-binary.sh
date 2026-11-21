@@ -13,12 +13,16 @@ cmd=$1 target=$2
 exe=""; [ "${RUNNER_OS:-}" = Windows ] && exe=.exe
 bin="target/$target/release/sw-mcp$exe"
 
-# Prefixes rustc writes into panic locations and `file!()`: this checkout and cargo's home.
+# Prefixes rustc writes into panic locations and `file!()`: this checkout and cargo's home. On
+# Windows, the C runtime is linked statically too: a dynamic one needs the Visual C++
+# Redistributable, which a fresh Windows does not have (VCRUNTIME140.dll was not found).
 rustflags() {
-  local root=$PWD cargo_home=${CARGO_HOME:-$HOME/.cargo}
-  if [ "${RUNNER_OS:-}" = Windows ]; then root="$(cygpath -w "$root")"; cargo_home="$(cygpath -w "$cargo_home")"; fi
+  local root=$PWD cargo_home=${CARGO_HOME:-$HOME/.cargo} crt=""
+  if [ "${RUNNER_OS:-}" = Windows ]; then
+    root="$(cygpath -w "$root")"; cargo_home="$(cygpath -w "$cargo_home")"; crt=" -C target-feature=+crt-static"
+  fi
   case "$root$cargo_home" in *" "*) echo "::error::a path with a space cannot be remapped" >&2; exit 1 ;; esac
-  echo "RUSTFLAGS=--remap-path-prefix=$root=/sw --remap-path-prefix=$cargo_home=/cargo"
+  echo "RUSTFLAGS=--remap-path-prefix=$root=/sw --remap-path-prefix=$cargo_home=/cargo$crt"
 }
 
 # Prints a tool's whole report, then fails if it matches. The report is captured first: piping
@@ -41,7 +45,8 @@ check() {
       local vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" dumpbin
       dumpbin="$("$vswhere" -latest -products '*' -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' | head -1 | tr -d '\r')"
       [ -n "$dumpbin" ] || { echo "::error::dumpbin.exe not found"; exit 1; }
-      refuse_match "$("$dumpbin" -nologo -dependents "$bin")" 'libssl|libcrypto|openssl' "links an OpenSSL DLL"
+      refuse_match "$("$dumpbin" -nologo -dependents "$bin")" 'libssl|libcrypto|openssl|vcruntime|msvcp|api-ms-win-crt' \
+        "links an OpenSSL DLL or a C runtime a fresh Windows lacks"
       grep -q 'machine (x64)' <<<"$("$dumpbin" -nologo -headers "$bin")" || { echo "::error::not an x64 binary"; exit 1; } ;;
     *)
       refuse_match "$(ldd "$bin")" 'libssl|libcrypto' "links the host OpenSSL" ;;
