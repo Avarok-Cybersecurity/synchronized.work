@@ -76,8 +76,11 @@ pub fn start() -> StandInNode {
                     }
                 },
             );
-            let node = DefaultNodeBuilder::default()
+            let node = citadel_sdk::test_common::node_builder()
                 .with_node_type(NodeType::Server(tcp))
+                .with_link_manager(LinkManagerMode::Legacy)
+                .with_max_security_level(citadel_sdk::test_common::localhost_max_security_level())
+                .with_server_limits(citadel_sdk::test_common::localhost_server_limits())
                 .with_backend(BackendType::InMemory)
                 .with_stun_servers(LOOPBACK_STUN)
                 .with_path_policy(citadel_sdk::test_common::localhost_path_policy())

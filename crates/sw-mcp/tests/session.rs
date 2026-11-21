@@ -7,7 +7,7 @@ mod support;
 
 use std::time::Duration;
 
-use citadel_sdk::prelude::{BackendType, WebSocketEndpoint};
+use citadel_sdk::prelude::{BackendType, CertVerification, WebSocketEndpoint};
 use support::node;
 use sw_client::{SessionError, SessionPort as _, SessionState};
 use sw_mcp::session::{CitadelSession, SessionSettings};
@@ -24,6 +24,8 @@ async fn the_device_registers_logs_in_and_carries_bytes_both_ways() {
         backend: BackendType::InMemory,
         reconnect_delay: Duration::from_secs(1),
         stun_servers: node::LOOPBACK_STUN.iter().map(|s| s.to_string()).collect(),
+        // The stand-in node serves plain ws:// on loopback: there is no certificate to verify.
+        cert_verification: CertVerification::SelfSignedAccepted,
     };
     let (mut session, _done) = CitadelSession::start(settings).unwrap();
     assert_eq!(

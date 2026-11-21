@@ -3,9 +3,11 @@
 //! every setting below comes from [`Provisioning`], and an invalid one stops the start.
 
 use citadel_sdk::prelude::*;
+use citadel_sdk::types::crypto::MaxSecurityLevel;
 use citadel_user::auth::pq::oprf::OprfSeed;
 use citadel_user::auth::pq::record::KsfParams;
 use citadel_user::auth::pq::server::PqAuthServerSettings;
+use citadel_user::auth::pq::throttle::ThrottlePolicy;
 use citadel_user::credentials::CredentialRequirements;
 use sw_protocol::ports::Clock;
 
@@ -32,9 +34,23 @@ impl std::fmt::Display for StartError {
     }
 }
 
+/// The SDK's sign-in throttle as its authors recommend it (five failures or twenty starts per
+/// fifteen minutes per username and network): the node has no reason to differ from it.
+pub const SIGN_IN_THROTTLE: ThrottlePolicy = ThrottlePolicy::RECOMMENDED;
+
+/// The highest security level any session with this node is built at: every synchronized.work
+/// client (sw-mcp, sw-bench) opens its session at `Standard` and none raises it per message.
+pub const MAX_SESSION_LEVEL: SecurityLevel = SecurityLevel::Standard;
+
+/// The node's maximum security level ([`MAX_SESSION_LEVEL`]), as the SDK requires it.
+pub fn max_security_level() -> Result<MaxSecurityLevel, StartError> {
+    MaxSecurityLevel::new(MAX_SESSION_LEVEL).map_err(|e| StartError::Settings(e.to_string()))
+}
+
 /// The SDK settings provisioning names. Post-quantum sign-in is on (OPRF + client-side
 /// Argon2id, D1), transient connections are off (the production setting the hosted kernel
-/// uses), and the server-side Argon2 is the isolate's cost.
+/// uses), and the server-side Argon2 is the isolate's cost. Links are kept the SDK's `Legacy`
+/// way: the node holds C2S sessions only, so the managed P2P link policy has nothing to keep.
 pub fn configure<T: PlatformOps>(
     builder: &mut NodeBuilder<StackedRatchet, T>,
     p: &Provisioning,
@@ -46,10 +62,13 @@ pub fn configure<T: PlatformOps>(
         iterations: p.ksf.iterations,
         lanes: p.ksf.lanes,
     };
-    let pq = PqAuthServerSettings::new(OprfSeed::from_bytes(*p.oprf_seed), ksf)
+    let pq = PqAuthServerSettings::new(OprfSeed::from_bytes(*p.oprf_seed), ksf, SIGN_IN_THROTTLE)
         .map_err(|e| settings(&e))?;
     let _ = builder
         .with_backend(backend)
+        .with_link_manager(LinkManagerMode::Legacy)
+        .with_max_security_level(max_security_level()?)
+        .with_server_limits(p.server_limits.clone())
         .with_stun_servers(p.stun_servers.clone())
         .with_path_policy(p.path_policy.clone())
         .with_server_misc_settings(ServerMiscSettings {

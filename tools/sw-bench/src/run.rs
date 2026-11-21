@@ -66,7 +66,11 @@ async fn drive(
     messages: u32,
 ) -> Result<[Sample; 6], String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
+    let max_level = citadel_sdk::types::crypto::MaxSecurityLevel::new(SecurityLevel::Standard)
+        .map_err(|e| e.to_string())?;
     let client = DefaultNodeBuilder::default()
+        .with_link_manager(LinkManagerMode::Legacy)
+        .with_max_security_level(max_level)
         .with_stun_servers([
             "stun.cloudflare.com:3478",
             "stun1.l.google.com:19302",
@@ -103,7 +107,7 @@ async fn phases(
     let mut clients = Vec::new();
     for n in 0..sessions {
         clients.push(
-            Client::sign_in(remote, Account::numbered(n))
+            Client::sign_in(remote, dial, Account::numbered(n))
                 .await
                 .map_err(e)?,
         );

@@ -168,6 +168,7 @@ impl Daemon {
             backend: BackendType::Filesystem(backend_dir),
             reconnect_delay: Duration::from_secs(self.config.reconnect_delay_s),
             stun_servers: self.config.stun_servers.clone(),
+            cert_verification: self.config.cert_verification().map_err(|e| e.to_string())?,
         };
         let (session, done) = CitadelSession::start(settings)?;
         tokio::spawn(async move {

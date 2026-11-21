@@ -55,9 +55,9 @@ wasm-bindgen = "=0.2.129"
 
 # The Citadel SDK at the rev the hosted tenant Worker runs (design §10), without default features
 # so the wasm32 build carries no filesystem backend; native builds add `std`.
-citadel_sdk = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb", default-features = false }
-citadel_io = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb", default-features = false }
-citadel_user = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "38fd3ddb", default-features = false }
+citadel_sdk = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "ddae84679552c7b1f3175f53c7aeb98a4726a1c0", default-features = false }
+citadel_io = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "ddae84679552c7b1f3175f53c7aeb98a4726a1c0", default-features = false }
+citadel_user = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol", rev = "ddae84679552c7b1f3175f53c7aeb98a4726a1c0", default-features = false }
 # The portable identity (lane I1, frozen identity-api contract): the IdentityPort adapter and the
 # server key behind /.well-known/citadel. Pinned to the published batch-1116 commit.
 citadel-identity = { git = "https://github.com/Avarok-Cybersecurity/citadel-internal-service", rev = "5b2374ec9958a31f7b4e2a45b37ca454e14911db" }
