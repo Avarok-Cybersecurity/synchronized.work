@@ -19,7 +19,7 @@ pub struct BoundDevice {
     pub id_fp: IdFp,
     pub cid: Cid,
     pub sign_pk: Vec<u8>,
-    /// ML-KEM-768 encapsulation key.
+    /// ML-KEM-1024 encapsulation key.
     pub seal_pk: Vec<u8>,
 }
 

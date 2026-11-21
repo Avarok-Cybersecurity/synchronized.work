@@ -63,7 +63,7 @@ export function PostQuantum() {
         </li>
         <li className="card">
           <h3>Sealed to one machine</h3>
-          <p>Prompts are sealed with ML-KEM-768 and AES-256-GCM to the device that runs them. The server relays them and cannot read them.</p>
+          <p>Prompts are sealed with ML-KEM-1024 and AES-256-GCM to the device that runs them. The server relays them and cannot read them.</p>
         </li>
         <li className="card">
           <h3>A compromised server can’t forge</h3>

@@ -1,6 +1,6 @@
 //! The scratchpad's sealed text ([`PadSealed`]): one random content key `K` per note or ack,
 //! the text encrypted once under it, and `K` wrapped to each recipient Device with the
-//! sw-wire [`Sealed`] envelope (ML-KEM-768, HKDF-SHA3-256, AES-256-GCM). The node relays
+//! sw-wire [`Sealed`] envelope (ML-KEM-1024, HKDF-SHA3-256, AES-256-GCM). The node relays
 //! it unread; a Device not among `keys` cannot open it.
 
 use sw_crypto::{AEAD_NONCE_LEN, Entropy, KemSecretKey, aead_open, aead_seal};

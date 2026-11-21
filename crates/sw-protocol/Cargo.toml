@@ -1,6 +1,6 @@
 [package]
 name = "sw-protocol"
-description = "PURE. synchronized.work SwMessages in canonical CBOR, the Signed (ML-DSA-65) and Sealed (ML-KEM-768 + HKDF-SHA3-256 + AES-256-GCM) envelopes, nonce / exp / seq rules, the P2P envelope and the IdentityPort."
+description = "PURE. synchronized.work SwMessages in canonical CBOR, the Signed (ML-DSA-65) and Sealed (ML-KEM-1024 + HKDF-SHA3-256 + AES-256-GCM) envelopes, nonce / exp / seq rules, the P2P envelope and the IdentityPort."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

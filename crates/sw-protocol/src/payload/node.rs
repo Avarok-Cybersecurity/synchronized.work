@@ -16,7 +16,7 @@ wire_text! {
     pub struct PubKeys {
         /// ML-DSA-65 verifying key, 1952 bytes.
         sign: Bytes,
-        /// ML-KEM-768 encapsulation key, 1184 bytes; a Device's.
+        /// ML-KEM-1024 encapsulation key, 1568 bytes; a Device's.
         seal: Option<Bytes>,
     }
 }

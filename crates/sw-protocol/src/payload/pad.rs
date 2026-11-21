@@ -15,13 +15,16 @@ pub mod pad_limits {
     pub const REFS: usize = 16;
     pub const REF_BYTES: usize = 512;
     /// Explicit targets of one note.
-    pub const TARGETS: usize = 64;
-    /// Recipient Devices one note may be sealed to (keeps one stored entry under 128 KiB).
-    pub const KEYS: usize = 64;
+    pub const TARGETS: usize = 48;
+    /// Recipient Devices one note may be sealed to: 48 ML-KEM-1024 wraps keep the largest note
+    /// under 120 KiB, so its stored entry fits one 128 KiB Durable Object value.
+    pub const KEYS: usize = 48;
     /// Verified Devices listed for one member in a `PAD_DIRECTORY` answer.
     pub const PROOFS_PER_MEMBER: usize = 16;
     /// The longest `exp - iat` of a note or ack; a project's retention may only shorten it.
     pub const LIFETIME_MS: u64 = 7 * 24 * 60 * 60 * 1000;
+    /// The retention a new project starts with (owner decision): the protocol cap.
+    pub const NEW_PROJECT_RETENTION_MS: u64 = LIFETIME_MS;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,6 +143,16 @@ wire_text! {
 }
 
 impl PadPolicy {
+    /// What creating a project writes, explicitly and signed by its owner: notes live
+    /// `NEW_PROJECT_RETENTION_MS` until the owner changes it. The node has no default; a project
+    /// without a policy refuses notes.
+    pub fn for_new_project(project: String) -> Self {
+        Self {
+            project,
+            retention_ms: pad_limits::NEW_PROJECT_RETENTION_MS,
+        }
+    }
+
     fn check(&self) -> Result<(), WireError> {
         if (1..=pad_limits::LIFETIME_MS).contains(&self.retention_ms) {
             Ok(())

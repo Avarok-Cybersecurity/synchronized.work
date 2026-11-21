@@ -1,20 +1,20 @@
 use ml_kem::{
-    B32, Ciphertext, Decapsulate, EncapsulationKey, KeyExport, MlKem768, Seed, TryKeyInit,
+    B32, Ciphertext, Decapsulate, EncapsulationKey, KeyExport, MlKem1024, Seed, TryKeyInit,
 };
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::{CryptoError, Entropy};
 
 pub const KEM_SEED_LEN: usize = 64;
-pub const KEM_ENCAPSULATION_KEY_LEN: usize = 1184;
-pub const KEM_CIPHERTEXT_LEN: usize = 1088;
+pub const KEM_ENCAPSULATION_KEY_LEN: usize = 1568;
+pub const KEM_CIPHERTEXT_LEN: usize = 1568;
 
 /// The 32-byte ML-KEM shared secret, wiped on drop.
 pub type SharedSecret = Zeroizing<[u8; 32]>;
 
-/// An ML-KEM-768 decapsulation (sealing) key expanded from a 64-byte seed.
+/// An ML-KEM-1024 decapsulation (sealing) key expanded from a 64-byte seed.
 pub struct KemSecretKey {
-    inner: ml_kem::DecapsulationKey<MlKem768>,
+    inner: ml_kem::DecapsulationKey<MlKem1024>,
     public: Vec<u8>,
 }
 
@@ -30,7 +30,7 @@ impl KemSecretKey {
     pub fn from_seed(seed: &[u8; KEM_SEED_LEN]) -> Self {
         let mut s = Seed::default();
         s.copy_from_slice(seed);
-        let inner = ml_kem::DecapsulationKey::<MlKem768>::from_seed(s);
+        let inner = ml_kem::DecapsulationKey::<MlKem1024>::from_seed(s);
         s.as_mut_slice().zeroize();
         let public = inner.encapsulation_key().to_bytes().to_vec();
         Self { inner, public }
@@ -44,14 +44,14 @@ impl KemSecretKey {
         key
     }
 
-    /// The 1184-byte encapsulation key a sender seals to.
+    /// The 1568-byte encapsulation key a sender seals to.
     pub fn encapsulation_key(&self) -> &[u8] {
         &self.public
     }
 
     pub fn decapsulate(&self, ciphertext: &[u8]) -> Result<SharedSecret, CryptoError> {
-        let ct = Ciphertext::<MlKem768>::try_from(ciphertext)
-            .map_err(|_| CryptoError::Malformed("ML-KEM-768 ciphertext"))?;
+        let ct = Ciphertext::<MlKem1024>::try_from(ciphertext)
+            .map_err(|_| CryptoError::Malformed("ML-KEM-1024 ciphertext"))?;
         let shared = self.inner.decapsulate(&ct);
         let mut out = Zeroizing::new([0u8; 32]);
         out.copy_from_slice(shared.as_slice());
@@ -64,8 +64,8 @@ pub fn kem_encapsulate(
     encapsulation_key: &[u8],
     entropy: &mut dyn Entropy,
 ) -> Result<([u8; KEM_CIPHERTEXT_LEN], SharedSecret), CryptoError> {
-    let ek = EncapsulationKey::<MlKem768>::new_from_slice(encapsulation_key)
-        .map_err(|_| CryptoError::Malformed("ML-KEM-768 encapsulation key"))?;
+    let ek = EncapsulationKey::<MlKem1024>::new_from_slice(encapsulation_key)
+        .map_err(|_| CryptoError::Malformed("ML-KEM-1024 encapsulation key"))?;
     let mut m = B32::default();
     entropy.fill(m.as_mut_slice());
     let (ct, shared) = ek.encapsulate_deterministic(&m);

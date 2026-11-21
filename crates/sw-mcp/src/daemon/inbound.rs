@@ -63,7 +63,17 @@ impl Daemon {
             Err(e) => log::error!("HELLO: {e:?}"),
         }
         let mut enrol = None;
-        if !self.home.enrol_proof().exists() {
+        let current = crate::home::read_private(&self.home.enrol_proof())
+            .ok()
+            .flatten()
+            .is_some_and(|p| {
+                crate::outbound::proof_is_current(
+                    &p,
+                    self.keys.sign.public_key(),
+                    self.keys.kem.encapsulation_key(),
+                )
+            });
+        if !current {
             match outbound.enrol(
                 &self.keys.sign,
                 self.keys.kem.encapsulation_key(),

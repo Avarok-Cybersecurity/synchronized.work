@@ -197,3 +197,48 @@ fn text_over_the_limit_is_not_sealed() {
         "control"
     );
 }
+
+#[test]
+fn the_largest_note_fits_one_stored_value() {
+    let from = PadDevice::new(1, 1, 101, NOW);
+    let to: Vec<PadDevice> = (0..pad_limits::KEYS as u8)
+        .map(|i| PadDevice::new(i + 2, i + 2, 200 + u64::from(i), NOW))
+        .collect();
+    let recipients: Vec<Recipient<'_>> = to
+        .iter()
+        .map(|d| Recipient {
+            cid: d.cid,
+            seal_pk: d.kem.encapsulation_key(),
+        })
+        .collect();
+    let full = PadText {
+        body: "x".repeat(pad_limits::TEXT_BYTES),
+        refs: vec!["r".repeat(pad_limits::REF_BYTES); pad_limits::REFS],
+    };
+    let sealed = seal_text(&full, &recipients, &mut LabelledEntropy::new("max")).unwrap();
+    let payload = Payload::PadNote(PadNote {
+        project: "p1".into(),
+        scope: PadScope::Members,
+        to: to.iter().map(|d| d.id_fp()).collect(),
+        body: sealed,
+        proof: Bytes(from.proof.clone()),
+    });
+    let bytes = from.signed(payload, NOW, HOUR, 1);
+    // A Durable Object value is at most 128 KiB; 8 KiB is left for the entry's own fields.
+    assert!(bytes.len() <= 120 * 1024, "{} bytes", bytes.len());
+}
+
+#[test]
+fn a_new_project_starts_at_the_seven_day_cap() {
+    let p = PadPolicy::for_new_project("p1".into());
+    assert_eq!(p.retention_ms, 7 * 24 * 3_600_000);
+    assert!(Payload::from_value(20, Payload::PadPolicy(p).to_value()).is_ok());
+    let over = PadPolicy {
+        project: "p1".into(),
+        retention_ms: pad_limits::LIFETIME_MS + 1,
+    };
+    assert!(
+        Payload::from_value(20, Payload::PadPolicy(over).to_value()).is_err(),
+        "control: past the cap is refused"
+    );
+}

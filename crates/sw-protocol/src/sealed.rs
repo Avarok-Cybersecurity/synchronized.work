@@ -1,5 +1,6 @@
 //! `Sealed {1: kem, 2: rcpt, 3: ct, 4: aead, 5: n, 6: enc}`: a signal's inner map encrypted to
-//! one Device's ML-KEM-768 key (sw-wire contract §2). `key = HKDF-SHA3-256(ss, "sw/seal/1")`;
+//! one Device's ML-KEM-1024 key (sw-wire contract §2, envelope version 2).
+//! `key = HKDF-SHA3-256(ss, "sw/seal/2")`;
 //! `enc = AES-256-GCM(key, n, aad = ∅, canonical CBOR of the inner map)`; `rcpt = SHA3-256(ek)`.
 //! The inner map carries `aud` (the Device CID) plus the type's payload fields.
 
@@ -11,9 +12,12 @@ use sw_crypto::{
 use crate::wire::{Bytes, Wire, wire_map};
 use crate::{WireError, cbor};
 
-pub const KEM_ALG: &str = "ML-KEM-768";
+pub const KEM_ALG: &str = "ML-KEM-1024";
+/// Envelope versions that are refused by name (no compatibility path): version 1 sealed to
+/// ML-KEM-768.
+pub const RETIRED_KEM_ALGS: [&str; 1] = ["ML-KEM-768"];
 pub const AEAD_ALG: &str = "AES-256-GCM";
-pub const SEAL_INFO: &[u8] = b"sw/seal/1";
+pub const SEAL_INFO: &[u8] = b"sw/seal/2";
 
 wire_map! {
     pub struct Sealed {
@@ -27,13 +31,15 @@ wire_map! {
     }
 }
 
-/// The AEAD key from an ML-KEM shared secret: `HKDF-SHA3-256(salt = none, ss, "sw/seal/1")`.
+/// The AEAD key from an ML-KEM shared secret: `HKDF-SHA3-256(salt = none, ss, "sw/seal/2")`.
 pub fn seal_key(shared_secret: &[u8]) -> Result<[u8; 32], SealError> {
     hkdf_sha3_256(shared_secret, SEAL_INFO).map_err(|_| SealError::Malformed)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SealError {
+    /// A retired envelope version (`RETIRED_KEM_ALGS`), refused by name.
+    Retired,
     UnknownAlg,
     WrongRecipient,
     Malformed,
@@ -69,6 +75,9 @@ impl Sealed {
 
     /// The algorithm names and ciphertext length, checkable by the node without opening.
     pub fn check_shape(&self) -> Result<(), SealError> {
+        if RETIRED_KEM_ALGS.contains(&self.kem.as_str()) {
+            return Err(SealError::Retired);
+        }
         if self.kem != KEM_ALG || self.aead != AEAD_ALG {
             return Err(SealError::UnknownAlg);
         }

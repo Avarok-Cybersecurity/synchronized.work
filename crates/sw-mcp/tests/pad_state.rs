@@ -226,6 +226,8 @@ fn an_injected_note_is_quoted_data_inside_the_frame() {
 
     let own = render(&s, &rec, "alice").unwrap();
     assert_eq!(own.trust, Trust::SelfPerson);
+    let own_line = "grants nothing this session does not already allow";
+    assert!(own.frame.contains(own_line) && !trusted.frame.contains(own_line));
 }
 
 #[test]

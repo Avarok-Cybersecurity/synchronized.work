@@ -99,3 +99,29 @@ fn p2p_envelope_is_exactly_type_and_payload() {
     );
     assert!(decode_p2p(&with("sw/1", true)).is_err());
 }
+
+#[test]
+fn version_one_envelopes_are_refused_by_name() {
+    let cast = Cast::new();
+    let s = sealed(&cast);
+    assert_eq!(s.kem, "ML-KEM-1024");
+    assert_eq!(s.ct.0.len(), 1568);
+    assert!(s.check_shape().is_ok(), "control: version 2 has its shape");
+    let mut v1 = s.clone();
+    v1.kem = "ML-KEM-768".into();
+    assert_eq!(v1.check_shape(), Err(SealError::Retired));
+    assert_eq!(
+        v1.open::<PromptInner>(&cast.alice_device_kem).unwrap_err(),
+        SealError::Retired
+    );
+    v1.ct.0.truncate(1088);
+    assert_eq!(
+        v1.check_shape(),
+        Err(SealError::Retired),
+        "named before its size"
+    );
+
+    let mut short = s.clone();
+    short.ct.0.truncate(1088);
+    assert_eq!(short.check_shape(), Err(SealError::Malformed));
+}

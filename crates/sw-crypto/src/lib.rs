@@ -1,5 +1,5 @@
 //! Post-quantum primitives for synchronized.work, bytes in and bytes out: ML-DSA-65,
-//! ML-KEM-768, HKDF-SHA3-256, AES-256-GCM and SHA3-256.
+//! ML-KEM-1024, HKDF-SHA3-256, AES-256-GCM and SHA3-256.
 //!
 //! Nothing here reads a clock, the OS or a global RNG: every random input arrives through
 //! [`Entropy`], which each adapter implements over its platform's CSPRNG (web crypto, the OS,

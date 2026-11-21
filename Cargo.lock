@@ -5458,8 +5458,10 @@ dependencies = [
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "ciborium",
  "serde_json",
  "sw-crypto",
+ "sw-protocol",
  "sw-testkit",
  "toml",
 ]

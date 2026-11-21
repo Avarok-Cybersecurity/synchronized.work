@@ -12,8 +12,8 @@ with declared blockers — from one person's machine to many people. Each Projec
 | Crate | Kind | Role |
 |---|---|---|
 | `crates/sw-model` | pure | The tree, the tier state machine, readiness and admission order, visibility, the hashed task embedding. |
-| `crates/sw-protocol` | pure | Canonical CBOR `SwMessage`s, the `Signed` (ML-DSA-65) and `Sealed` (ML-KEM-768 + HKDF-SHA3-256 + AES-256-GCM) envelopes, nonce / `exp` / `seq` rules, the one verification gate, the P2P envelope, the Person record and the `IdentityPort`. Conforms to the frozen batch-1116 `sw-wire` contract. |
-| `crates/sw-crypto` | pure | ML-DSA-65, ML-KEM-768, HKDF-SHA3-256, AES-256-GCM and SHA3-256 behind an injected `Entropy` port. |
+| `crates/sw-protocol` | pure | Canonical CBOR `SwMessage`s, the `Signed` (ML-DSA-65) and `Sealed` (ML-KEM-1024 + HKDF-SHA3-256 + AES-256-GCM) envelopes, nonce / `exp` / `seq` rules, the one verification gate, the P2P envelope, the Person record and the `IdentityPort`. Conforms to the frozen batch-1116 `sw-wire` contract. |
+| `crates/sw-crypto` | pure | ML-DSA-65, ML-KEM-1024, HKDF-SHA3-256, AES-256-GCM and SHA3-256 behind an injected `Entropy` port. |
 | `crates/sw-client` | pure | The ports clients are written against (`SessionPort`, `P2pPort`), the viewer's fold of a Project subscription, and the Sign in with Citadel link. |
 | `crates/sw-graph` | pure | The framework-free layout core: tidy-tree positions computed once, spring interpolation, a draw-list IR and hit-testing, shared by the web view and the Citadel App canvas. |
 | `crates/sw-testkit` | dev only | Deterministic entropy, the stand-in identity, the fixture cast and the one conformance check. Never a normal dependency (the sbio gate refuses it). |
@@ -54,6 +54,30 @@ The site's identity has two sources: `site/public/logo.svg` (the mark) and
 every icon, `favicon.ico`, `og-image.png` and `site.webmanifest` from them, and
 `site/vite/head.mjs` derives the `<head>` tags; never edit a derived file by hand. The build
 needs `SITE_BUILD_SHA`, which versions the service worker's cache.
+
+## Developer scratchpad and async wake-ups
+
+Members of a project leave each other signed notes ("free to merge my PR when you're ready")
+through `sw-mcp`'s `scratchpad_post`. Each note is signed by the sender's Device key and sealed
+to the recipients' Devices; the node stores and relays it but cannot read or forge it. The
+recipient's daemon verifies it against the sender's own enrolment proof and wakes its idle
+agent, whose `scratchpad_ack` travels back the same way and wakes the sender.
+
+A note reaches an agent as data from a named, verified person, never as its user's
+instruction: from an untrusted sender it is a suggestion to show the user. `sw-mcp pad trust`
+marks a colleague's notes as hand-offs, still under the receiving user's own permissions.
+
+A session that idles until work arrives:
+
+```sh
+sw-mcp daemon &
+claude mcp add synchronized-work -- sw-mcp serve --channel
+# Push (Claude Code channels, research preview):
+MCP_PROTOCOL_NEGOTIATION=legacy claude --dangerously-load-development-channels server:synchronized-work
+# Anywhere else, the agent runs this under Monitor or as a background command and re-arms
+# it with the cursor each event carries:
+sw-mcp pad wait --after 0 --timeout-s 1500
+```
 
 ## Links
 

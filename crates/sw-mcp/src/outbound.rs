@@ -183,3 +183,21 @@ impl Outbound {
         )
     }
 }
+
+/// Whether a stored ENROL still announces this Device's keys. A proof from before a key or
+/// envelope change (or one that no longer decodes) is stale, and the Device enrols again.
+pub fn proof_is_current(proof: &[u8], sign_pk: &[u8], seal_pk: &[u8]) -> bool {
+    let Ok(SwMessage::Signed { signed, .. }) = SwMessage::from_bytes(proof) else {
+        return false;
+    };
+    let Ok(body) = Body::from_bytes(&signed.body.0) else {
+        return false;
+    };
+    matches!(
+        body.payload,
+        Payload::Enrol(Enrol {
+            pubkeys: Some(PubKeys { sign, seal: Some(seal) }),
+            ..
+        }) if sign.0 == sign_pk && seal.0 == seal_pk
+    )
+}

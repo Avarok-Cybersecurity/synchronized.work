@@ -12,7 +12,7 @@ pub mod conformance;
 mod entropy;
 mod identity;
 pub mod kat;
-mod model;
+pub mod model;
 pub mod pad;
 pub mod sign_in_kat;
 
