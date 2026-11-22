@@ -77,8 +77,13 @@ test('reduced motion draws one still frame; otherwise the background animates', 
 
 test('the keyboard reaches the skip link, then the navigation, with a visible focus ring', async ({ page }) => {
   await page.goto('/');
+  // The skip link is rendered by the app, not the shell: goto resolves on `load`, before React has
+  // mounted it. A Tab pressed into the empty shell lands nowhere, and the link, once mounted, reads
+  // `inactive` (run 44959413916). Tab through the DOM the test is about, not the one before it.
+  const skip = page.getByRole('link', { name: 'Skip to content' });
+  await skip.waitFor({ state: 'attached' });
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+  await expect(skip).toBeFocused();
   await page.keyboard.press('Tab');
   const outline = await page.evaluate(() => getComputedStyle(document.activeElement as Element).outlineStyle);
   expect(outline).not.toBe('none');
