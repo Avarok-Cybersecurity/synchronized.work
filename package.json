@@ -3,6 +3,6 @@
   "private": true,
   "//": "wrangler only: the Worker is Rust (workers-rs). Pinned like the tenant Worker's.",
   "devDependencies": {
-    "wrangler": "4.136.3"
+    "wrangler": "4.166.0"
   }
 }
