@@ -9,8 +9,8 @@ pub const CONNECTING_BODY: &[&str] = &["Your Citadel agent is opening a session 
 
 pub const LINK_TITLE: &str = "Link your synchronized.work person";
 pub const LINK_BODY: &[&str] = &[
-    "On synchronized.work, choose \"Link a Citadel app\" to get an 8-character code.",
-    "Type it here and press Enter.",
+    "On your computer, run: sw-mcp link-code --project <id>",
+    "It prints an 8-character code. Type it here and press Enter.",
 ];
 pub const LINK_FIELD_LABEL: &str = "Link code";
 pub const LINK_PENDING: &str = "Checking the code with synchronized.work...";
@@ -18,8 +18,8 @@ pub const LINK_REFUSED: &str = "That code was not accepted. Get a new one and tr
 
 pub const EMPTY_NO_PROJECT_TITLE: &str = "Linked, with no project for this page yet";
 pub const EMPTY_NO_PROJECT_BODY: &[&str] = &[
-    "Choose a project for this page on synchronized.work,",
-    "then link again with a new code.",
+    "Get a code for a project with sw-mcp link-code,",
+    "then link again with the new code.",
 ];
 pub const EMPTY_NOTHING_TITLE: &str = "Nothing to show yet";
 pub const EMPTY_NOTHING_BODY: &[&str] = &[

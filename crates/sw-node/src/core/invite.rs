@@ -4,7 +4,6 @@
 
 use std::collections::BTreeMap;
 
-use sw_model::IdFp;
 use sw_model::tier::{JoinPolicy, Tier, TierName};
 use sw_protocol::gate::Verified;
 use sw_protocol::invite::token_hash;
@@ -69,7 +68,11 @@ impl NodeCore {
             let change = self
                 .tree
                 .update_fields(&v.body.iss, project, &open, now_ms)?;
-            effects.extend(self.apply_change(change, now_ms)?);
+            let by = super::feed::Author {
+                iss: v.body.iss.clone(),
+                from: v.body.from,
+            };
+            effects.extend(self.apply_change(change, &by, now_ms)?);
         }
         effects.extend(self.prune_invites(project, now_ms));
         self.invites
@@ -88,7 +91,7 @@ impl NodeCore {
     /// which is deleted only once the tier machine accepted the request.
     pub(super) fn join(
         &mut self,
-        iss: &IdFp,
+        by: &super::feed::Author,
         request: &JoinRequest,
         signal_id: [u8; 32],
         now_ms: u64,
@@ -115,8 +118,10 @@ impl NodeCore {
             (false, Some(_)) => return Err(NodeRefusal::Malformed),
             (false, None) => None,
         };
-        let change = self.tree.join_request(iss, request, signal_id, now_ms)?;
-        let mut effects = self.apply_change(change, now_ms)?;
+        let change = self
+            .tree
+            .join_request(&by.iss, request, signal_id, now_ms)?;
+        let mut effects = self.apply_change(change, by, now_ms)?;
         if let Some(hash) = spend {
             if let Some(m) = self.invites.live.get_mut(&request.task_id) {
                 m.remove(&hash);

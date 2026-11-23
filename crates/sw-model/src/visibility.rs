@@ -45,8 +45,13 @@ pub struct Visible {
     pub blockers: Option<Vec<Blocker>>,
 }
 
+/// Whether a viewer at `level` is shown bodies, blockers and last lines.
+pub fn bodies_shown(level: Level) -> bool {
+    level == Level::Full
+}
+
 pub fn redact(level: Level, progress: &Progress, blockers: &[Blocker]) -> Option<Visible> {
-    let full = level == Level::Full;
+    let full = bodies_shown(level);
     match level {
         Level::Nothing => None,
         Level::ExistenceAndPercent | Level::PhaseAndPercent | Level::Full => Some(Visible {
@@ -58,11 +63,17 @@ pub fn redact(level: Level, progress: &Progress, blockers: &[Blocker]) -> Option
     }
 }
 
+/// Whether a viewer at `level` is shown the Task's title (and, at `Full`, its body): the
+/// rule both the `EVENT` projection and the `NOTIFY` text follow.
+pub fn title_shown(level: Level) -> bool {
+    level >= Level::PhaseAndPercent
+}
+
 /// `NOTIFY` text for a viewer: a `vis:owner` task reaches non-owners without its title.
 pub fn notify_subject(visibility: Visibility, viewer: Viewer, title: &str) -> Option<String> {
     match level(visibility, viewer) {
         Level::Nothing => None,
-        Level::ExistenceAndPercent => Some("a task you work under".to_owned()),
-        Level::PhaseAndPercent | Level::Full => Some(title.to_owned()),
+        l if title_shown(l) => Some(title.to_owned()),
+        _ => Some("a task you work under".to_owned()),
     }
 }

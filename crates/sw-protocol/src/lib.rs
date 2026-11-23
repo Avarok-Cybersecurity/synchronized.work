@@ -16,6 +16,7 @@ pub mod cbor;
 mod error;
 pub mod gate;
 pub mod invite;
+pub mod link_code;
 mod model_wire;
 pub mod p2p;
 pub mod pad;

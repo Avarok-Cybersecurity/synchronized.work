@@ -13,7 +13,7 @@ pub struct LoadError {
     pub why: String,
 }
 
-fn hex32(text: &str) -> Option<[u8; 32]> {
+pub(crate) fn hex32(text: &str) -> Option<[u8; 32]> {
     if text.len() != 64 {
         return None;
     }
@@ -60,6 +60,8 @@ impl NodeCore {
             self.inbox.load(cid, q);
         } else if !self.pad_load(key, value).map_err(fail)?
             && !self.invite_load(key, value).map_err(fail)?
+            && !self.link_load(key, value).map_err(fail)?
+            && !self.feed_load(key, value).map_err(fail)?
         {
             return Err(fail("not a key the node writes".into()));
         }

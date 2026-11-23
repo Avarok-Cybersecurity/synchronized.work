@@ -1,5 +1,5 @@
 //! Linking the install's Endpoint to a Person with a link code (design §5.3 "ships first",
-//! §7.5). The member types the 8-character code minted on the site; the App sends
+//! §7.5). The member types the 8-character code `sw-mcp link-code` minted; the App sends
 //! `LINK_REDEEM{code, acting_username, install_id, node_id}` (unsigned, slot 2) over its
 //! session. The node answers with a `PAD_RECEIPT` for `typ 16` whose `id` is the SHA3-256 of
 //! the redeem's bytes and whose `project` is the Project bound to this node (empty: none yet).

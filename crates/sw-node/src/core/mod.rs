@@ -8,8 +8,11 @@ mod coop;
 mod directory;
 mod dispatch;
 mod enrol;
+mod fanout;
+mod feed;
 mod inbox;
 mod invite;
+mod link;
 pub mod load;
 mod notify;
 mod pad;
@@ -21,7 +24,9 @@ mod tree;
 
 pub use codec::{task_from_bytes, task_to_bytes};
 pub use directory::Directory;
+pub use feed::serve::UNRECORDED_SENDER;
 pub use invite::invite_key;
+pub use link::LinkRefusal;
 pub use notify::{DEDUP_WINDOW_MS, event_id};
 pub use pad::PadRefusal;
 pub use receipt::RECEIPTED;
@@ -76,6 +81,8 @@ pub struct NodeCore {
     notifier: Notifier,
     pad: pad::ledger::Ledger,
     invites: invite::Invites,
+    feed: feed::Feed,
+    links: link::Links,
     online: BTreeSet<Cid>,
     /// Sessions that sent `HELLO`, the first message of every session.
     greeted: BTreeSet<Cid>,
@@ -92,6 +99,8 @@ impl NodeCore {
             notifier: Notifier::default(),
             pad: pad::ledger::Ledger::default(),
             invites: invite::Invites::default(),
+            feed: feed::Feed::default(),
+            links: link::Links::default(),
             online: BTreeSet::new(),
             greeted: BTreeSet::new(),
         }
@@ -128,17 +137,21 @@ impl NodeCore {
         effects
     }
 
+    /// A session ended: it is offline, and its subscriptions end with it.
     pub fn disconnected(&mut self, cid: Cid) {
         self.online.remove(&cid);
         self.greeted.remove(&cid);
+        self.feed.drop_session(cid);
     }
 
-    /// Live sessions of a Person.
-    fn sessions_of(&self, person: &sw_model::IdFp) -> Vec<Cid> {
-        self.directory
-            .endpoints_of(person)
-            .into_iter()
-            .filter(|cid| self.online.contains(cid))
-            .collect()
+    /// Live sessions of a Person for an event of `project`: every enrolled Endpoint, and the
+    /// accounts linked to the Person for that Project.
+    fn sessions_of(&self, person: &sw_model::IdFp, project: &str) -> Vec<Cid> {
+        let mut cids = self.directory.endpoints_of(person);
+        cids.extend(self.links.linked(person, project));
+        cids.retain(|cid| self.online.contains(cid));
+        cids.sort_unstable();
+        cids.dedup();
+        cids
     }
 }

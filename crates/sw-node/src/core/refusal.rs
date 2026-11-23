@@ -40,6 +40,8 @@ pub enum NodeRefusal {
     InboxFull,
     /// A scratchpad rule (sent back to the writer in a `PAD_RECEIPT`).
     Pad(super::PadRefusal),
+    /// A link-code rule (sent back to the minter in a `PAD_RECEIPT`).
+    Link(super::LinkRefusal),
     /// A `TASK_WRITE` carrying `embedding`: the wire's `uint ≤ 65535` form has no defined map
     /// from the signed buckets `sw-model` recomputes, so it cannot be checked (C0 gap).
     EmbeddingUnverifiable,

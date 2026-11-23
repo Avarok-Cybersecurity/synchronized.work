@@ -63,7 +63,7 @@ impl Daemon {
         }
     }
 
-    fn signed(&mut self, payload: Payload) -> Result<(Vec<u8>, String), String> {
+    pub(super) fn signed(&mut self, payload: Payload) -> Result<(Vec<u8>, String), String> {
         let outbound = self.outbound.as_mut().ok_or("not connected to the node")?;
         let bytes = outbound
             .sign(
@@ -197,6 +197,7 @@ impl Daemon {
                 self.send(ask.to_bytes().map_err(|e| format!("{e:?}"))?);
                 return Ok(Awaited::Pending(project));
             }
+            Request::LinkCode { project } => return self.link_code_send(project),
             _ => return Err("not an onboarding request".into()),
         };
         let mut ids = Vec::new();

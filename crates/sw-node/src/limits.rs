@@ -13,6 +13,10 @@ pub const VAR_MAX_PERSONS: &str = "SW_MAX_PERSONS";
 pub const VAR_MAX_TASKS: &str = "SW_MAX_TASKS";
 pub const VAR_PAD_RATE_PER_MIN: &str = "SW_PAD_RATE_PER_MIN";
 pub const VAR_PAD_PENDING_MAX: &str = "SW_PAD_PENDING_MAX";
+pub const VAR_SUBSCRIPTIONS_PER_SESSION: &str = "SW_SUBSCRIPTIONS_PER_SESSION";
+pub const VAR_SUBSCRIBERS_PER_PROJECT: &str = "SW_SUBSCRIBERS_PER_PROJECT";
+pub const VAR_LINK_REDEEM_PER_MIN: &str = "SW_LINK_REDEEM_PER_MIN";
+pub const VAR_LINK_REDEEM_NODE_PER_MIN: &str = "SW_LINK_REDEEM_NODE_PER_MIN";
 
 /// The SDK's server limits (`ServerLimits`): connections held before sign-in, per address and
 /// in all; legacy registrations hashed at once, or `refused`; bytes queued per stream and in all.
@@ -34,6 +38,13 @@ pub struct Limits {
     pub pad_rate_per_min: usize,
     /// Notes pending (un-acked) for one target Person in one project.
     pub pad_pending_max: usize,
+    /// Projects one session may be subscribed to at once.
+    pub subscriptions_per_session: usize,
+    /// Sessions subscribed to one project at once.
+    pub subscribers_per_project: usize,
+    /// `LINK_REDEEM` attempts one account may make per minute, and the whole node.
+    pub link_redeem_per_min: usize,
+    pub link_redeem_node_per_min: usize,
 }
 
 impl Limits {
@@ -45,6 +56,10 @@ impl Limits {
             max_tasks: number(source, VAR_MAX_TASKS)?,
             pad_rate_per_min: number(source, VAR_PAD_RATE_PER_MIN)?,
             pad_pending_max: number(source, VAR_PAD_PENDING_MAX)?,
+            subscriptions_per_session: number(source, VAR_SUBSCRIPTIONS_PER_SESSION)?,
+            subscribers_per_project: number(source, VAR_SUBSCRIBERS_PER_PROJECT)?,
+            link_redeem_per_min: number(source, VAR_LINK_REDEEM_PER_MIN)?,
+            link_redeem_node_per_min: number(source, VAR_LINK_REDEEM_NODE_PER_MIN)?,
         })
     }
 }

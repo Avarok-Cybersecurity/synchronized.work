@@ -4251,6 +4251,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "sw-devnode"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "citadel-identity",
+ "citadel_sdk",
+ "data-encoding",
+ "serde_json",
+ "sw-mcp",
+ "sw-model",
+ "sw-node",
+ "sw-protocol",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "sw-graph"
 version = "0.2.0"
 dependencies = [
@@ -4313,10 +4330,14 @@ dependencies = [
  "futures",
  "log",
  "serde_json",
+ "sw-app-core",
+ "sw-client",
  "sw-crypto",
+ "sw-graph",
  "sw-model",
  "sw-protocol",
  "sw-testkit",
+ "sw-view",
  "tokio",
  "zeroize",
 ]

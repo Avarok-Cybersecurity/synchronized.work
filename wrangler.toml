@@ -91,6 +91,12 @@ SW_MAX_TASKS = "5000"
 # 50 notes pending per target per project. Retention is each project's PAD_POLICY.
 SW_PAD_RATE_PER_MIN = "10"
 SW_PAD_PENDING_MAX = "50"
+# Viewers (design §4.6, §5.3, §6.7): projects one session follows and sessions one project
+# serves; link-code redeem attempts per account and for the whole node, per minute.
+SW_SUBSCRIPTIONS_PER_SESSION = "8"
+SW_SUBSCRIBERS_PER_PROJECT = "256"
+SW_LINK_REDEEM_PER_MIN = "5"
+SW_LINK_REDEEM_NODE_PER_MIN = "60"
 # The SDK's server limits. Before sign-in: 16 connections per address (a NAT's clients share
 # one), 256 in all. Legacy registrations (the server hashing a password) are refused: clients
 # register post-quantum. Queued outbound bytes: the inbox's 4 MiB per stream, 32 MiB in all,

@@ -6,9 +6,9 @@ use sw_protocol::gate::{Verified, Verifier, accept_unsigned, verify};
 use sw_protocol::payload::Payload;
 use sw_protocol::signed::SwMessage;
 
+use super::feed::Author;
 use super::inbox::{self, Queued};
-use super::tree::Change;
-use super::{Effect, NodeCore, NodeRefusal, codec, enrol};
+use super::{Effect, NodeCore, NodeRefusal, enrol};
 use crate::identity::CitadelIdentity;
 
 pub fn seq_key(kid: &[u8; 32]) -> String {
@@ -35,7 +35,7 @@ impl NodeCore {
         let message = SwMessage::from_bytes(bytes)?;
         if let SwMessage::Unsigned(_) = &message {
             let payload = accept_unsigned(message)?;
-            return self.unsigned(cid, payload);
+            return self.unsigned(cid, payload, bytes, now_ms);
         }
         if !self.greeted.contains(&cid) {
             return Err(NodeRefusal::NoHello);
@@ -58,6 +58,7 @@ impl NodeCore {
         let mut effects = match self.signed(cid, &verified, bytes, now_ms) {
             Ok(effects) => effects,
             Err(NodeRefusal::Pad(r)) => return self.pad_refused(&verified, r),
+            Err(NodeRefusal::Link(r)) => return self.link_refused(cid, &verified, r),
             Err(e) => return Err(e),
         };
         self.replay = scratch;
@@ -72,12 +73,20 @@ impl NodeCore {
         Ok(effects)
     }
 
-    fn unsigned(&mut self, cid: Cid, payload: Payload) -> Result<Vec<Effect>, NodeRefusal> {
+    fn unsigned(
+        &mut self,
+        cid: Cid,
+        payload: Payload,
+        bytes: &[u8],
+        now_ms: u64,
+    ) -> Result<Vec<Effect>, NodeRefusal> {
         match payload {
             Payload::Hello(_) => {
                 self.greeted.insert(cid);
                 Ok(Vec::new())
             }
+            Payload::Subscribe(s) => self.subscription(cid, &s),
+            Payload::Link(l) => self.link_redeem(cid, &l, bytes, now_ms),
             Payload::PadDirectory(d) if d.members.is_none() => self.pad_directory(cid, &d.project),
             Payload::JoinPending(j) if j.requests.is_none() => self.join_pending(cid, j.project),
             p @ (Payload::Presence(_)
@@ -101,6 +110,10 @@ impl NodeCore {
     ) -> Result<Vec<Effect>, NodeRefusal> {
         let iss = &v.body.iss;
         let limits = self.rules.limits;
+        let by = Author {
+            iss: iss.clone(),
+            from: v.body.from,
+        };
         let change = match &v.body.payload {
             Payload::Enrol(e) => {
                 let policy = self.rules.new_person_policy;
@@ -124,10 +137,16 @@ impl NodeCore {
                     dir.person(p).is_some()
                 })?
             }
-            Payload::JoinRequest(r) => return self.join(iss, r, v.signal_id, now_ms),
+            Payload::JoinRequest(r) => return self.join(&by, r, v.signal_id, now_ms),
             Payload::Invite(i) => return self.invite(v, i, now_ms),
             Payload::JoinAnswer(a) => self.tree.join_answer(iss, a, now_ms)?,
-            Payload::StatusUpdate(s) => self.tree.status(iss, cid, s, now_ms)?,
+            Payload::StatusUpdate(s) => {
+                let change = self.tree.status(iss, cid, s, now_ms)?;
+                let mut effects = self.apply_change(change, &by, now_ms)?;
+                effects.extend(self.feed_status(by, s)?);
+                return Ok(effects);
+            }
+            Payload::Link(l) => return self.link_mint(cid, v, l, now_ms),
             Payload::Prompt(_) | Payload::Control(_) => {
                 return self.relay(v, bytes, EndpointKind::Device, true, now_ms);
             }
@@ -146,7 +165,7 @@ impl NodeCore {
             Payload::PadPolicy(p) => return self.pad_policy(v, p),
             p => return Err(NodeRefusal::Unsupported(p.typ())),
         };
-        self.apply_change(change, now_ms)
+        self.apply_change(change, &by, now_ms)
     }
 
     /// Sends a signal to its audience's live session and, for a Device, queues it until the
@@ -198,39 +217,5 @@ impl NodeCore {
             _ => return Err(NodeRefusal::Pad(r)),
         };
         Ok(vec![Self::pad_receipt(v.body.from, project, v, Some(r))?])
-    }
-
-    pub(super) fn apply_change(
-        &mut self,
-        change: Change,
-        now_ms: u64,
-    ) -> Result<Vec<Effect>, NodeRefusal> {
-        let mut effects = Vec::new();
-        for id in &change.stored {
-            if let Some(task) = self.tree.get(id) {
-                effects.push(Effect::Put {
-                    key: task_key(id),
-                    value: codec::task_to_bytes(task)?,
-                });
-            }
-        }
-        for id in &change.deleted {
-            effects.push(Effect::Delete { key: task_key(id) });
-        }
-        for event in &change.events {
-            let live: std::collections::BTreeMap<_, _> = event
-                .recipients
-                .iter()
-                .map(|p| (p.clone(), self.sessions_of(p)))
-                .collect();
-            let Some(task) = self.tree.get(&event.task) else {
-                continue;
-            };
-            let sessions = |p: &sw_model::IdFp| live.get(p).cloned().unwrap_or_default();
-            for (to, bytes) in self.notifier.fan_out(event, task, &sessions, now_ms)? {
-                effects.push(Effect::Send { to, bytes });
-            }
-        }
-        Ok(effects)
     }
 }

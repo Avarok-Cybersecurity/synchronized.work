@@ -29,6 +29,11 @@ citadel_user = { workspace = true, features = ["std", "filesystem"] }
 [dev-dependencies]
 sw-testkit.workspace = true
 data-encoding.workspace = true
+# The viewer's fold and the Citadel App's core, driven against this node in the tests.
+sw-client.workspace = true
+sw-app-core.workspace = true
+sw-graph.workspace = true
+sw-view.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 # The SDK's own localhost test harness: a real Citadel client dials the node in the tests.
