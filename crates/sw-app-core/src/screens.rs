@@ -1,23 +1,31 @@
 //! The screens that are not the live tree, as `sw-graph` draw lists like the tree itself: a
-//! title, short lines, and one `Region` button per next action, so every action is reachable by
-//! keyboard and screen reader on a CW-5 host (and by pointer hit-testing on an ABI-1 host).
+//! title, paragraphs wrapped to the pane, and one `Region` button per next action, so every
+//! action is reachable by keyboard and screen reader on a CW-5 host (and by pointer
+//! hit-testing on an ABI-1 host). Buttons go on as many rows as the pane needs.
 
 use sw_graph::{DrawOp, RegionRole};
 
 use crate::copy;
 use crate::ctx::{AppTheme, Size};
+use crate::painter::TextMeasure;
 use crate::screen::{EmptyReason, LinkScreen, NextAction, Screen};
+use crate::wrap::wrap;
 
 struct Column<'t> {
     theme: &'t AppTheme,
+    measure: &'t dyn TextMeasure,
+    /// The pane's width inside its margins.
+    width: f32,
     ops: Vec<DrawOp>,
     y: f32,
 }
 
 impl<'t> Column<'t> {
-    fn new(theme: &'t AppTheme) -> Self {
+    fn new(theme: &'t AppTheme, size: Size, measure: &'t dyn TextMeasure) -> Self {
         Self {
             theme,
+            measure,
+            width: inner_width(theme, size),
             ops: vec![DrawOp::Clear {
                 color: theme.graph.background,
             }],
@@ -26,14 +34,16 @@ impl<'t> Column<'t> {
     }
 
     fn text(&mut self, text: &str, px: f32, color: u32) {
-        self.y += px.max(self.theme.line_height);
-        self.ops.push(DrawOp::FillText {
-            x: self.theme.margin,
-            y: self.y,
-            text: text.to_owned(),
-            size: px,
-            color,
-        });
+        for line in wrap(text, px, self.width, self.measure) {
+            self.y += px.max(self.theme.line_height);
+            self.ops.push(DrawOp::FillText {
+                x: self.theme.margin,
+                y: self.y,
+                text: line,
+                size: px,
+                color,
+            });
+        }
     }
 
     fn lines<S: AsRef<str>>(&mut self, lines: &[S], color: u32) {
@@ -84,12 +94,17 @@ impl<'t> Column<'t> {
         self.y += h;
     }
 
+    /// One row while they fit, then the next row; each as wide as its label needs.
     fn buttons(&mut self, actions: &[NextAction]) {
         let t = self.theme;
-        let (w, h) = t.button_size;
-        let y = self.y + t.line_height;
-        for (i, action) in actions.iter().enumerate() {
-            let x = t.margin + i as f32 * (w + t.margin);
+        let h = t.button_size.1;
+        let (mut x, mut y) = (t.margin, self.y + t.line_height);
+        for action in actions {
+            let label = self.measure.width(action.label(), t.body_px) + t.body_px;
+            let w = t.button_size.0.max(label).min(self.width);
+            if x > t.margin && x + w > t.margin + self.width {
+                (x, y) = (t.margin, y + h + t.margin);
+            }
             self.ops.push(DrawOp::FillRect {
                 x,
                 y,
@@ -113,14 +128,25 @@ impl<'t> Column<'t> {
                 label: action.label().to_owned(),
                 role: RegionRole::Button,
             });
+            x += w + t.margin;
         }
         self.y = y + h;
     }
 }
 
-/// The draw list of every screen but [`Screen::Live`] (an empty list for that one).
-pub fn ops(screen: &Screen, theme: &AppTheme) -> Vec<DrawOp> {
-    let mut c = Column::new(theme);
+fn inner_width(theme: &AppTheme, size: Size) -> f32 {
+    (size.width - 2.0 * theme.margin).max(0.0)
+}
+
+/// The draw list of every screen but [`Screen::Live`] (an empty list for that one), laid out
+/// for a pane of `size` with the host's `measure`.
+pub fn ops(
+    screen: &Screen,
+    theme: &AppTheme,
+    size: Size,
+    measure: &dyn TextMeasure,
+) -> Vec<DrawOp> {
+    let mut c = Column::new(theme, size, measure);
     let (title, lines, color): (&str, Vec<String>, u32) = match screen {
         Screen::Live => return Vec::new(),
         Screen::Connecting => (
@@ -139,7 +165,15 @@ pub fn ops(screen: &Screen, theme: &AppTheme) -> Vec<DrawOp> {
             own(copy::EMPTY_NOTHING_BODY),
             theme.muted,
         ),
-        Screen::Error(e) => (copy::ERROR_TITLE, e.lines(), theme.error),
+        Screen::Error(e) => (
+            e.title(),
+            e.lines(),
+            if e.is_failure() {
+                theme.error
+            } else {
+                theme.muted
+            },
+        ),
     };
     c.text(title, theme.title_px, theme.text);
     c.lines(&lines, color);
@@ -176,15 +210,35 @@ impl Composer {
     }
 }
 
-/// The live tree's footer: what the composer may do.
-pub fn composer_footer(composer: Composer, theme: &AppTheme, size: Size) -> Option<DrawOp> {
-    (composer == Composer::ReadOnly).then(|| DrawOp::FillText {
-        x: theme.margin,
-        y: size.height - theme.margin,
-        text: copy::COMPOSER_READ_ONLY.to_owned(),
-        size: theme.body_px,
-        color: theme.muted,
-    })
+/// The live tree's footer: what the composer may do, wrapped, its last line at the bottom.
+pub fn composer_footer(
+    composer: Composer,
+    theme: &AppTheme,
+    size: Size,
+    measure: &dyn TextMeasure,
+) -> Vec<DrawOp> {
+    if composer != Composer::ReadOnly {
+        return Vec::new();
+    }
+    let lines = wrap(
+        copy::COMPOSER_READ_ONLY,
+        theme.body_px,
+        inner_width(theme, size),
+        measure,
+    );
+    let bottom = size.height - theme.margin;
+    let rows = lines.len();
+    lines
+        .into_iter()
+        .enumerate()
+        .map(|(i, text)| DrawOp::FillText {
+            x: theme.margin,
+            y: bottom - (rows - 1 - i) as f32 * theme.line_height,
+            text,
+            size: theme.body_px,
+            color: theme.muted,
+        })
+        .collect()
 }
 
 fn own(lines: &[&str]) -> Vec<String> {

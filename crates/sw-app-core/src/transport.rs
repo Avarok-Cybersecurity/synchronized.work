@@ -1,6 +1,7 @@
 //! Which transport the App runs on (design §7.4, `citadel-session-abi` §1): `citadel.session`
 //! when granted (the main path); otherwise, or when the open answers `no_identity`, the
 //! `net.host` long-poll; with neither, an error with a next step. Never a silent default.
+//! After `no_identity`, a long-poll that cannot stand in is the no-identity screen.
 
 use crate::ctx::Granted;
 use crate::screen::AppError;
@@ -14,6 +15,10 @@ pub enum Transport {
     Fallback,
 }
 
+pub fn is_no_identity(reason: &str) -> bool {
+    reason == NO_IDENTITY
+}
+
 /// At start.
 pub fn choose(granted: &Granted) -> Result<Transport, AppError> {
     match (granted.citadel_session, granted.net_host) {
@@ -25,7 +30,7 @@ pub fn choose(granted: &Granted) -> Result<Transport, AppError> {
 
 /// After `SessionOpen` failed with `reason`.
 pub fn after_open_failure(reason: &str, granted: &Granted) -> Result<Transport, AppError> {
-    match (reason == NO_IDENTITY, granted.net_host) {
+    match (is_no_identity(reason), granted.net_host) {
         (true, true) => Ok(Transport::Fallback),
         (true, false) => Err(AppError::NoIdentity),
         (false, _) => Err(AppError::OpenFailed {

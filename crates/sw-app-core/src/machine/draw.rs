@@ -11,13 +11,14 @@ use crate::screens;
 impl<M: TextMeasure> App<M> {
     fn ops(&self) -> Vec<DrawOp> {
         if self.screen != Screen::Live {
-            return screens::ops(&self.screen, &self.ctx.theme);
+            return screens::ops(&self.screen, &self.ctx.theme, self.ctx.size, &self.measure);
         }
         let mut ops = self.graph.ops(&self.ctx.theme);
         ops.extend(screens::composer_footer(
             self.composer,
             &self.ctx.theme,
             self.ctx.size,
+            &self.measure,
         ));
         ops
     }
