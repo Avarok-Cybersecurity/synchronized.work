@@ -9,6 +9,11 @@
 //! centres it). The transform is computed from the positions at rest, so it holds still while
 //! the tween moves the nodes; it is applied to the tween's current positions.
 //!
+//! The scale is stepped: the largest power of [`FitParams::scale_ratio`] not above that
+//! exact value. Everything a label's text depends on — its size and its node's width — comes
+//! from the stepped scale, so a node added to the tree changes no other label (and costs no
+//! other label's measures) unless it moves the fit past a step.
+//!
 //! Text is not scaled below [`FitParams::label_min_px`]; a label wider than its node's scaled
 //! width is cut with an ellipsis (measured through the App's one width cache); labels are drawn
 //! only while a label row fits between one level's nodes and the next — below that scale they
@@ -33,6 +38,11 @@ pub struct FitParams {
     /// Every node's hit region is at least this `(w, h)` in CSS px, grown about the node's
     /// centre and kept inside the pane.
     pub region_min: (f32, f32),
+    /// One step of the fit scale, in `(0, 1)`.
+    pub scale_ratio: f32,
+    /// Steps taken at most; a tree that needs a smaller scale than `scale_ratio^scale_steps`
+    /// is drawn at its exact scale.
+    pub scale_steps: u32,
 }
 
 impl FitParams {
@@ -98,7 +108,7 @@ pub fn fit(boxes: &[(Pos, (f32, f32))], area: Area, label_size: f32, p: &FitPara
         .min(ratio(area.w, tree_w))
         .min(ratio(area.h - p.label_row(top_px), tree_h));
     let scale = if scale.is_finite() {
-        scale.max(0.0)
+        stepped(scale.max(0.0), p)
     } else {
         0.0
     };
@@ -120,6 +130,18 @@ pub fn fit(boxes: &[(Pos, (f32, f32))], area: Area, label_size: f32, p: &FitPara
         label_px,
         labels,
     }
+}
+
+/// The largest `scale_ratio^k` (`k ≤ scale_steps`) not above `exact`; else `exact`.
+fn stepped(exact: f32, p: &FitParams) -> f32 {
+    let mut s = 1.0f32;
+    for _ in 0..p.scale_steps {
+        if s <= exact {
+            return s;
+        }
+        s *= p.scale_ratio;
+    }
+    if s <= exact { s } else { exact }
 }
 
 /// `text` as drawn in `max` CSS px at `px`: whole when it fits, else its longest prefix that

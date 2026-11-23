@@ -53,10 +53,13 @@ pub const MAX_CALL_RATE_PER_S: u32 = 120;
 /// The App's own ceiling, two thirds of the manifest's: the other third is for the calls the
 /// binding makes itself (stream reads, the event subscription, log lines). Draws and measures
 /// stop 16 short of it, so sends and notifications always find room; 64 a second still draws
-/// every frame of a 60 Hz animation.
+/// every frame of a 60 Hz animation. However much text a screen or a new tree has to measure,
+/// room is kept to draw the movement 32 times a second: a draw at least every 31.25 ms plus one
+/// frame (48 ms at 60 Hz), inside the 50 ms beyond which motion reads as a series of jumps.
 pub const HOST_CALLS: HostCallBudget = HostCallBudget {
     per_s: 80,
     reserve: 16,
+    draw_floor: 32,
 };
 /// A notification the host refused is tried again a second later (the host's call budget has
 /// refilled by then), five times in all, at most 16 held at once.
@@ -66,11 +69,14 @@ pub const NOTIFY_RETRY: NotifyRetry = NotifyRetry {
     spacing_ms: 1000.0,
 };
 /// Fitting the tree to the pane: labels no smaller than 11 px; every node's hit region at least
-/// 24 x 24 CSS px (WCAG 2.2 target size, minimum).
+/// 24 x 24 CSS px (WCAG 2.2 target size, minimum); the scale in steps of 10 %, so between the
+/// label size and the minimum a label takes one of three sizes (13, 11.7 and 11 px).
 pub const FIT: FitParams = FitParams {
     label_min_px: 11.0,
     label_descent_em: 0.25,
     region_min: (24.0, 24.0),
+    scale_ratio: 0.9,
+    scale_steps: 64,
 };
 
 /// The tree's sizes and gaps: the site's (`site/src/view/params.json`, which a test compares

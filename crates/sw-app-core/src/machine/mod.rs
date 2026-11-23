@@ -63,6 +63,8 @@ pub struct App<M> {
     dirty: bool,
     /// The host refused the last draw: it is drawn again on the next frame.
     refused: bool,
+    /// The input being handled is a frame's tick (its draw waits for the pace).
+    framed: bool,
 }
 
 impl<M: HostText> App<M> {
@@ -76,6 +78,7 @@ impl<M: HostText> App<M> {
             deferred: VecDeque::new(),
             before: None,
             refused: false,
+            framed: false,
             ctx,
             config,
             screen: Screen::Connecting,

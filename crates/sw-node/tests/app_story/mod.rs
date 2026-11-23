@@ -6,6 +6,7 @@
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 pub mod fixture;
+pub mod motion;
 pub mod paced;
 pub mod replay;
 

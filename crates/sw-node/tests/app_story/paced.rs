@@ -8,6 +8,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use super::fixture::Fixture;
+use super::motion::{Accepted, fold_nodes};
 use super::recorded_ctx;
 use crate::app_link::Step;
 use crate::app_support::FixedAdvance;
@@ -47,6 +48,8 @@ pub struct Host {
     bucket: Bucket,
     /// When the App made each call.
     pub calls: Vec<f64>,
+    /// When the App asked for each text width.
+    pub measures: Vec<f64>,
     pub refused: usize,
 }
 
@@ -65,10 +68,10 @@ pub struct ScriptedMeasure(pub Rc<RefCell<Host>>);
 
 impl HostText for ScriptedMeasure {
     fn measure(&self, text: &str, px: f32) -> Option<f32> {
-        self.0
-            .borrow_mut()
-            .call()
-            .then(|| FixedAdvance.width(text, px))
+        let mut host = self.0.borrow_mut();
+        let at = host.now_ms;
+        host.measures.push(at);
+        host.call().then(|| FixedAdvance.width(text, px))
     }
 }
 
@@ -80,6 +83,13 @@ pub struct Paced {
     pub sends: Vec<Vec<u8>>,
     pub notified: Vec<HostNotify>,
     pub drawn: Option<Vec<DrawCommand>>,
+    /// Every draw the host took, when, and the fold's tree nodes at that moment.
+    pub accepted: Vec<Accepted>,
+    /// When each message was delivered, and the labels the fold held after it.
+    pub delivered: Vec<f64>,
+    pub folded: Vec<Vec<String>>,
+    /// The link record the App saved.
+    pub stored: Option<Vec<u8>>,
 }
 
 /// The fixture's context, as `replay` mounts it.
@@ -101,6 +111,7 @@ impl Paced {
             now_ms: 0.0,
             bucket: Bucket::new(rate),
             calls: Vec::new(),
+            measures: Vec::new(),
             refused: 0,
         }));
         Self {
@@ -110,7 +121,15 @@ impl Paced {
             sends: Vec::new(),
             notified: Vec::new(),
             drawn: None,
+            accepted: Vec::new(),
+            delivered: Vec::new(),
+            folded: Vec::new(),
+            stored: None,
         }
+    }
+
+    pub fn feed_effects(&mut self, effects: Vec<Effect>) {
+        self.perform(effects);
     }
 
     fn perform(&mut self, effects: Vec<Effect>) {
@@ -118,7 +137,14 @@ impl Paced {
         while let Some(effect) = queue.pop_front() {
             let ok = self.host.borrow_mut().call();
             match effect {
-                Effect::Draw(commands) if ok => self.drawn = Some(commands),
+                Effect::Draw(commands) if ok => {
+                    self.accepted.push(Accepted {
+                        at: self.host.borrow().now_ms,
+                        commands: commands.clone(),
+                        nodes: fold_nodes(&self.app),
+                    });
+                    self.drawn = Some(commands);
+                }
                 Effect::Draw(_) => queue.extend(self.app.handle(Input::DrawRefused)),
                 Effect::Notify(n) => {
                     let event_id = n.event_id;
@@ -132,6 +158,7 @@ impl Paced {
                 }
                 Effect::SessionSend { body } if ok => self.sends.push(body),
                 Effect::RequestFrames { on } if ok => self.frames_on = on,
+                Effect::WriteUserStorage { value, .. } if ok => self.stored = Some(value),
                 _ => {}
             }
         }
@@ -150,7 +177,7 @@ impl Paced {
         }
     }
 
-    fn settle(&mut self, dt_ms: f32, ms: f32) {
+    pub fn settle(&mut self, dt_ms: f32, ms: f32) {
         for _ in 0..(ms / dt_ms) as usize {
             self.tick(dt_ms);
         }
@@ -178,8 +205,7 @@ impl Paced {
                     }
                     Step::Expect(_) => {}
                     Step::Deliver(body) => {
-                        self.tick(dt_ms);
-                        self.feed(Input::SessionMessage { body: body.clone() });
+                        self.deliver(dt_ms, body);
                     }
                 }
             }

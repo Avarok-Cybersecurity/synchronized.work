@@ -10,7 +10,10 @@
 //!
 //! Host calls are budgeted ([`crate::pace`]): before a frame is built the App grants the cache
 //! an allowance of host measures; a width it may not ask for is estimated for that build only
-//! and the build is marked starved, so the App does not draw it and builds again later.
+//! and the build is marked estimated: the App draws it (the tree keeps moving, every node in
+//! it) and builds again on the next frame the budget allows, until a build needs no estimate.
+//! Each such build measures what the allowance takes, so the widths fill in over frames and
+//! the frame at rest is exact.
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
@@ -44,8 +47,8 @@ pub struct MeasureParams {
 pub struct Asked {
     /// Host measure calls made.
     pub calls: u32,
-    /// A width was needed past the allowance: the build used an estimate and must not be drawn.
-    pub starved: bool,
+    /// A width was needed past the allowance: the build used an estimate, to be built again.
+    pub estimated: bool,
 }
 
 type Key = (String, u32);
@@ -91,7 +94,7 @@ pub struct MeasureCache<M> {
     memo: RefCell<Memo>,
     allowance: Cell<u32>,
     calls: Cell<u32>,
-    starved: Cell<bool>,
+    estimated: Cell<bool>,
 }
 
 impl<M: HostText> MeasureCache<M> {
@@ -102,7 +105,7 @@ impl<M: HostText> MeasureCache<M> {
             memo: RefCell::new(Memo::default()),
             allowance: Cell::new(0),
             calls: Cell::new(0),
-            starved: Cell::new(false),
+            estimated: Cell::new(false),
         }
     }
 
@@ -110,7 +113,7 @@ impl<M: HostText> MeasureCache<M> {
     pub fn allow(&self, calls: u32) {
         self.allowance.set(calls);
         self.calls.set(0);
-        self.starved.set(false);
+        self.estimated.set(false);
     }
 
     /// Ends the build: what it asked of the host. No host measure is allowed until the next.
@@ -118,7 +121,7 @@ impl<M: HostText> MeasureCache<M> {
         self.allowance.set(0);
         Asked {
             calls: self.calls.replace(0),
-            starved: self.starved.replace(false),
+            estimated: self.estimated.replace(false),
         }
     }
 
@@ -144,7 +147,7 @@ impl<M: HostText> TextMeasure for MeasureCache<M> {
         }
         let allowance = self.allowance.get();
         if allowance == 0 {
-            self.starved.set(true);
+            self.estimated.set(true);
             return self.estimate(text, px);
         }
         self.allowance.set(allowance - 1);

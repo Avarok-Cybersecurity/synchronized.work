@@ -84,6 +84,7 @@ pub fn config() -> AppConfig {
         host_calls: HostCallBudget {
             per_s: 1_000_000,
             reserve: 16,
+            draw_floor: 30,
         },
         measure: MeasureParams {
             capacity: 512,
@@ -93,6 +94,8 @@ pub fn config() -> AppConfig {
             label_min_px: 10.0,
             label_descent_em: 0.25,
             region_min: (24.0, 24.0),
+            scale_ratio: 0.9,
+            scale_steps: 64,
         },
     }
 }

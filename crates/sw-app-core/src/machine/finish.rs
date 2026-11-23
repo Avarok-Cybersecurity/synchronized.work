@@ -10,7 +10,6 @@ use super::{App, Effect};
 use crate::measure::HostText;
 use crate::notify::HostNotify;
 use crate::notify_retry::GaveUp;
-use crate::pace::Tier;
 use crate::screen::Screen;
 
 impl<M: HostText> App<M> {
@@ -24,8 +23,9 @@ impl<M: HostText> App<M> {
         );
         let mut emitted = Vec::new();
         self.flush(&mut emitted);
-        if self.dirty && self.ledger.room(Tier::Low) > 0 {
-            self.draw(&mut emitted);
+        let frame = std::mem::take(&mut self.framed);
+        if self.dirty {
+            self.draw(frame, &mut emitted);
         }
         self.flush(&mut emitted);
         self.frames(&mut emitted);
@@ -35,17 +35,18 @@ impl<M: HostText> App<M> {
     /// The deferred calls, then the notifications due, while the budget has room.
     fn flush(&mut self, out: &mut Vec<Effect>) {
         while let Some(effect) = self.deferred.front() {
-            if self.ledger.room(effect.tier()) == 0 {
+            let tier = effect.tier();
+            if self.ledger.room(tier) == 0 {
                 return;
             }
-            self.ledger.spend(1);
+            self.ledger.spend(tier, 1);
             out.extend(self.deferred.pop_front());
         }
         while self.ledger.room(NOTIFY_TIER) > 0 {
             let Some(note) = self.notices.due(self.ledger.now_ms()) else {
                 break;
             };
-            self.ledger.spend(1);
+            self.ledger.spend(NOTIFY_TIER, 1);
             out.push(Effect::Notify(note));
         }
     }
@@ -60,8 +61,9 @@ impl<M: HostText> App<M> {
             return;
         }
         let effect = Effect::RequestFrames { on: want };
-        if self.ledger.room(effect.tier()) > 0 {
-            self.ledger.spend(1);
+        let tier = effect.tier();
+        if self.ledger.room(tier) > 0 {
+            self.ledger.spend(tier, 1);
             self.animating = want;
             out.push(effect);
         }
@@ -70,6 +72,7 @@ impl<M: HostText> App<M> {
     /// One frame: the clock moves, the tree moves, and a refused draw is tried once more.
     pub(super) fn frame_tick(&mut self, dt_ms: f32) {
         self.ledger.advance(dt_ms);
+        self.framed = true;
         if std::mem::take(&mut self.refused) {
             self.dirty = true;
         }

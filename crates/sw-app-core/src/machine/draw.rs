@@ -1,6 +1,8 @@
 //! One frame: the screen's draw list through the painter the host's canvas takes, built with
-//! the measures the budget allows; a build that needed more is not drawn (it is built again,
-//! from the latest state, once the window has room).
+//! the measures the budget allows ([`crate::pace::Ledger::draw`]). A build that needed more is
+//! drawn with estimates for the rest and built again, from the latest state, on the next frame
+//! the budget allows, until one needs no estimate; a rebuild that measured nothing new and
+//! looks the same is not drawn again.
 
 use sw_graph::{DrawOp, Painter};
 
@@ -70,27 +72,34 @@ impl<M: HostText> App<M> {
         }
     }
 
-    /// Draws the current state if the budget takes the measures it needs and the draw.
-    pub(super) fn draw(&mut self, out: &mut Vec<Effect>) {
-        let room = self.ledger.room(Tier::Low);
-        let Some(measures) = room.checked_sub(1) else {
+    /// Draws the current state if the budget takes the draw; `frame`: on a frame's tick.
+    pub(super) fn draw(&mut self, frame: bool, out: &mut Vec<Effect>) {
+        let Some(measures) = self.ledger.draw(frame) else {
             return;
         };
         self.text.allow(measures);
         let built = self.build();
         let asked = self.text.settle();
-        self.ledger.spend(asked.calls);
-        if asked.starved {
-            return;
-        }
-        self.dirty = false;
+        self.ledger.spend(Tier::Low, asked.calls);
+        self.dirty = asked.estimated;
         match built {
             Ok(frame) => {
-                self.ledger.spend(1);
+                let same = self
+                    .frame
+                    .as_ref()
+                    .is_some_and(|shown| shown.commands == frame.commands);
+                if asked.estimated && asked.calls == 0 && same {
+                    return;
+                }
+                self.ledger.spend(Tier::Low, 1);
+                self.ledger.drew();
                 out.push(Effect::Draw(frame.commands.clone()));
                 self.before = Some(self.frame.replace(frame));
             }
-            Err(reason) => self.deferred.push_back(Effect::Fault { reason }),
+            Err(reason) => {
+                self.dirty = false;
+                self.deferred.push_back(Effect::Fault { reason });
+            }
         }
     }
 }

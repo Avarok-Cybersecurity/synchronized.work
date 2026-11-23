@@ -17,6 +17,7 @@ use wasm_bindgen_test::wasm_bindgen_test as test;
 const BUDGET: HostCallBudget = HostCallBudget {
     per_s: 48,
     reserve: 8,
+    draw_floor: 12,
 };
 
 struct Run {
