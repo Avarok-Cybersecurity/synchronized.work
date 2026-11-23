@@ -58,6 +58,10 @@ jobs:
         run: |
           cargo clippy -p sw-view-wasm --all-targets --locked --target wasm32-unknown-unknown -- -D warnings
           cargo test -p sw-view-wasm --locked --target wasm32-unknown-unknown
+      # SwApp (the SDK's App) exists on wasm32 only, where the guest SDK builds; its mapping
+      # functions are tested natively by the workspace's `cargo test`.
+      - name: The Citadel App binding for wasm32-unknown-unknown
+        run: cargo clippy -p sw-app --locked --target wasm32-unknown-unknown -- -D warnings
       - name: Build the node, its store and the Worker for wasm32-unknown-unknown
         env:
           # getrandom's browser backend; RUSTFLAGS replaces .cargo/config.toml's rustflags.

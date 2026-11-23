@@ -100,6 +100,20 @@ exceptions = [
     { name = "ar_archive_writer", allow = ["Apache-2.0 WITH LLVM-exception"] },
 ]
 
+# The Citadel app guest SDK and its ABI types (sw-app's only) name no `license` in their
+# Cargo.toml; the repository they are in is MIT (its root LICENSE, as citadel-identity's
+# `license = "MIT"` states for the same repository). Clarified against that file and its crc32
+# (cargo-deny 0.19 refuses a missing file; it does not compare the hash).
+[[licenses.clarify]]
+crate = "citadel-app-sdk"
+expression = "MIT"
+license-files = [{ path = "../LICENSE", hash = 0x861653ea }]
+
+[[licenses.clarify]]
+crate = "citadel-app-sdk-types"
+expression = "MIT"
+license-files = [{ path = "../LICENSE", hash = 0x861653ea }]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

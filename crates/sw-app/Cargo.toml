@@ -1,0 +1,27 @@
+[package]
+name = "sw-app"
+description = "ADAPTER. The synchronized.work Citadel App over citadel-app-sdk: SwApp turns the host's events and replies into sw-app-core Inputs and performs the core's Effects with the SDK's calls. Every decision is the core's; the mapping is pure functions, tested natively. A library: the wasm module that exports it is built in citadel-workspace (apps/first-party/synchronized-work)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+# Consumed by git revision (citadel-workspace pins it), never from crates.io; its SDK is a git
+# dependency, which crates.io would refuse.
+publish = false
+
+[dependencies]
+sw-app-core.workspace = true
+sw-graph.workspace = true
+sw-view.workspace = true
+citadel-app-sdk-types.workspace = true
+
+# The guest SDK refuses to compile for any other target (its imports exist only in a module).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+citadel-app-sdk.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
