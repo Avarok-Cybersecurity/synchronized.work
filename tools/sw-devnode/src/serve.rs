@@ -13,6 +13,9 @@ use sw_node::store::{NodeStore, StoreError};
 use sw_node::{Provisioning, Source};
 use sw_protocol::ports::Clock;
 
+use crate::options::Serve;
+use crate::status::{Counted, Status};
+
 /// The STUN servers a loopback node names (the SDK requires three distinct ones).
 pub const LOOPBACK_STUN: &str = "127.0.0.1:3478,127.0.0.1:3479,127.0.0.1:3480";
 
@@ -24,7 +27,7 @@ impl Source for Vars {
     }
 }
 
-fn vars(port: u16) -> Result<Vars, String> {
+fn vars(o: &Serve) -> Result<Vars, String> {
     let wrangler: toml::Table = include_str!("../../../wrangler.toml")
         .parse()
         .map_err(|e| format!("wrangler.toml: {e}"))?;
@@ -36,14 +39,14 @@ fn vars(port: u16) -> Result<Vars, String> {
             .ok_or_else(|| format!("wrangler.toml var {k} is not a string"))?;
         m.insert(k.clone(), v.to_owned());
     }
-    // The seeds tools/onboard-e2e.sh provisions: published test values.
-    m.insert(SECRET_SERVER_KEY_SEED.into(), "11".repeat(32));
+    // Published test values: the seeds tools/onboard-e2e.sh provisions, or a KAT server's.
+    m.insert(SECRET_SERVER_KEY_SEED.into(), o.server_seed_hex.clone());
     m.insert(SECRET_OPRF_SEED.into(), "22".repeat(32));
     let issuer = super::kat_issuer()?.public_key().to_base64url();
     m.insert(VAR_SIGN_IN_ISSUER_PK.into(), issuer);
     m.insert(
         VAR_CITADEL_WSS.into(),
-        format!("ws://127.0.0.1:{port}/citadel"),
+        format!("ws://{}:{}/citadel", o.bind, o.port),
     );
     m.insert(VAR_STUN_SERVERS.into(), LOOPBACK_STUN.into());
     Ok(Vars(m))
@@ -88,17 +91,23 @@ impl Clock for WallClock {
 }
 
 /// Runs the node until the process ends; returns only on a failure to start or a stop.
-pub fn run(port: u16) -> Result<String, String> {
-    let provisioning = Provisioning::from_source(&vars(port)?).map_err(|e| format!("{e:?}"))?;
-    let ws = std::net::TcpListener::bind(("127.0.0.1", port)).map_err(|e| e.to_string())?;
-    // A free port for the SDK's TCP listener, which binds it itself: this probe closes first.
-    let tcp = std::net::TcpListener::bind("127.0.0.1:0")
-        .and_then(|probe| probe.local_addr())
-        .map_err(|e| e.to_string())?;
+pub fn run(o: Serve) -> Result<String, String> {
+    let provisioning = Provisioning::from_source(&vars(&o)?).map_err(|e| format!("{e:?}"))?;
+    let bound = |port: u16| std::net::TcpListener::bind((o.bind, port)).map_err(|e| e.to_string());
+    let ws = bound(o.port)?;
+    let status_listener = bound(o.status_port)?;
+    let status_addr = status_listener.local_addr().map_err(|e| e.to_string())?;
+    // The SDK binds its TCP listener itself: a free port is found by a probe that closes first.
+    let tcp = match o.tcp_port {
+        0 => bound(0)?.local_addr().map_err(|e| e.to_string())?,
+        port => std::net::SocketAddr::new(o.bind, port),
+    };
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .map_err(|e| e.to_string())?;
+    let status = std::sync::Arc::new(Status::default());
+    crate::status::serve(status_listener, status.clone(), rt.handle().clone());
     rt.block_on(async move {
         let kernel = sw_node::start::prepare(&provisioning, Memory::default(), WallClock)
             .await
@@ -110,9 +119,13 @@ pub fn run(port: u16) -> Result<String, String> {
             .with_node_type(NodeType::Server(tcp))
             .with_path_policy(citadel_sdk::test_common::localhost_path_policy())
             .with_bound_websocket_listener(ws)
-            .build(kernel)
+            .build(Counted {
+                inner: kernel,
+                status,
+            })
             .map_err(|e| format!("{e:?}"))?;
-        println!("ready ws://127.0.0.1:{port}/citadel");
+        println!("status {status_addr}");
+        println!("ready ws://{}:{}/citadel", o.bind, o.port);
         node.await.map_err(|e| format!("{e:?}"))?;
         Ok("stopped".into())
     })

@@ -1,10 +1,17 @@
 //! A test-only synchronized.work node for another repository's CI (never a deployment):
 //!
-//! `sw-devnode serve <port>` runs the production sw-node kernel natively on
-//! `ws://127.0.0.1:<port>/citadel`, in memory, provisioned with wrangler.toml's `[vars]` and
-//! these published test values: the server and OPRF seeds of `tools/onboard-e2e.sh`, the C0
-//! KAT sign-in issuer (`fixtures/sign-in-kat.json`), loopback STUN. It prints one line,
-//! `ready ws://127.0.0.1:<port>/citadel`, once it accepts sessions.
+//! `sw-devnode serve <port> [--bind <ip>] [--tcp-port <port>] [--status-port <port>]
+//! [--server-seed <hex>]` runs the production sw-node kernel natively on
+//! `ws://<bind>:<port>/citadel` (bind 127.0.0.1 unless told), in memory, provisioned with
+//! wrangler.toml's `[vars]` and these published test values: the server and OPRF seeds of
+//! `tools/onboard-e2e.sh` (or, with `--server-seed`, a server seed of
+//! `fixtures/identity-kat.json`, and no other), the C0 KAT sign-in issuer
+//! (`fixtures/sign-in-kat.json`), loopback STUN. Each listener's port can be fixed (0 or
+//! absent: a free one). It prints `status <addr>`, then `ready ws://<bind>:<port>/citadel`
+//! once it accepts sessions.
+//!
+//! `sw-devnode status <host:port>` prints what the node at that status address holds:
+//! `{"accounts":N,"sessions":M}` (registered accounts, C2S sessions in progress).
 //!
 //! `sw-devnode home <dir> <port> <person-seed-hex>` writes a signed-in sw-mcp home for the
 //! Person whose identity seed is the 32 bytes given, pointed at that node; it prints the
@@ -16,7 +23,11 @@ fn main() {}
 #[cfg(not(target_arch = "wasm32"))]
 mod home;
 #[cfg(not(target_arch = "wasm32"))]
+mod options;
+#[cfg(not(target_arch = "wasm32"))]
 mod serve;
+#[cfg(not(target_arch = "wasm32"))]
+mod status;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> std::process::ExitCode {
@@ -27,9 +38,14 @@ fn main() -> std::process::ExitCode {
         .collect::<Vec<_>>()
         .as_slice()
     {
-        ["serve", port] => port_of(port).and_then(serve::run),
+        ["serve", rest @ ..] => options::serve(rest).and_then(serve::run),
+        ["status", addr] => status::read(addr),
         ["home", dir, port, seed] => port_of(port).and_then(|p| home::write(dir, p, seed)),
-        _ => Err("usage: sw-devnode serve <port> | home <dir> <port> <person-seed-hex>".into()),
+        _ => Err(
+            "usage: sw-devnode serve <port> [options] | status <host:port> | home <dir> <port> \
+             <person-seed-hex>"
+                .into(),
+        ),
     };
     match outcome {
         Ok(line) => {
