@@ -4,6 +4,7 @@
 mod admin;
 mod inbound;
 mod inbox;
+mod link_code;
 mod listen;
 mod onboard;
 mod onboard_in;

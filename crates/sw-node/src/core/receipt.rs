@@ -12,19 +12,20 @@ use super::{Effect, NodeCore, NodeRefusal};
 /// The writes whose writer is told whether they were stored.
 pub const RECEIPTED: [u8; 5] = [8, 9, 10, 20, 23];
 
-fn receipt(
+/// A `PAD_RECEIPT` for `to`: stored unless a `reason` says why not.
+pub(super) fn receipt(
     to: Cid,
     project: String,
     id: [u8; 32],
     typ: u8,
-    refused: Option<&NodeRefusal>,
+    reason: Option<String>,
 ) -> Result<Effect, NodeRefusal> {
     let receipt = PadReceipt {
         project,
         id,
         typ,
-        stored: refused.is_none(),
-        reason: refused.map(|r| format!("{r:?}")),
+        stored: reason.is_none(),
+        reason,
     };
     let bytes = SwMessage::Unsigned(Payload::PadReceipt(receipt)).to_bytes()?;
     Ok(Effect::Send { to, bytes })
@@ -64,7 +65,8 @@ impl NodeCore {
     }
 
     /// What the adapter sends after `received` refused `bytes` from session `cid`: a receipt
-    /// naming the reason, if the bytes are a signed write of a receipted type. Nothing changed.
+    /// naming the reason, if the bytes are a signed write of a receipted type or a `LINK_CODE`.
+    /// Nothing changed.
     pub fn refusal_receipt(&self, cid: Cid, bytes: &[u8], refusal: &NodeRefusal) -> Vec<Effect> {
         let Ok(SwMessage::Signed { typ, signed }) = SwMessage::from_bytes(bytes) else {
             return Vec::new();
@@ -72,11 +74,13 @@ impl NodeCore {
         let (Ok(id), Ok(body)) = (signed.signal_id(), Body::from_bytes(&signed.body.0)) else {
             return Vec::new();
         };
-        if !RECEIPTED.contains(&typ) {
-            return Vec::new();
-        }
-        let project = self.receipt_project(&body.payload).unwrap_or_default();
-        receipt(cid, project, id, typ, Some(refusal))
+        let project = match typ {
+            16 => self.feed.latest(cid).map(str::to_owned),
+            t if RECEIPTED.contains(&t) => self.receipt_project(&body.payload),
+            _ => return Vec::new(),
+        };
+        let project = project.unwrap_or_default();
+        receipt(cid, project, id, typ, Some(format!("{refusal:?}")))
             .map(|e| vec![e])
             .unwrap_or_default()
     }

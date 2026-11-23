@@ -62,6 +62,16 @@ impl Daemon {
                 self.onboard.insert(at, wait);
                 return true;
             }
+            // A link code is bound to the session's latest subscription: had the asked-for
+            // project's SUBSCRIBE been refused, the node would name another one here.
+            if r.typ == 16 && answer["project"] != json!(r.project) {
+                let why = format!(
+                    "the node bound the code to {:?}, not to this project; are you a member of it?",
+                    r.project
+                );
+                let _ = wait.reply.send(Reply::Error(why));
+                return true;
+            }
             if let Some((project, k)) = known.take() {
                 self.record_project(&project, k);
             }

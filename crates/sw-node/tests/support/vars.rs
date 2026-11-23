@@ -45,6 +45,14 @@ pub fn complete() -> Vars {
         (sw_node::limits::VAR_MAX_TASKS, "5000".into()),
         (sw_node::limits::VAR_PAD_RATE_PER_MIN, "10".into()),
         (sw_node::limits::VAR_PAD_PENDING_MAX, "50".into()),
+        (sw_node::limits::VAR_SUBSCRIPTIONS_PER_SESSION, "8".into()),
+        (sw_node::limits::VAR_SUBSCRIBERS_PER_PROJECT, "256".into()),
+        (sw_node::limits::VAR_LINK_REDEEM_PER_MIN, "5".into()),
+        (sw_node::limits::VAR_LINK_REDEEM_NODE_PER_MIN, "60".into()),
+        (
+            sw_node::limits::VAR_IDENTITY_CHALLENGE_INTERVAL_MS,
+            "1000".into(),
+        ),
         (sw_node::limits::VAR_PROVISIONAL_PER_IP, "64".into()),
         (sw_node::limits::VAR_PROVISIONAL_TOTAL, "256".into()),
         (

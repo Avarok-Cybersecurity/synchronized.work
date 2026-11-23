@@ -71,6 +71,12 @@ enum Command {
         #[command(subcommand)]
         cmd: JoinCmd,
     },
+    /// A code that links the synchronized.work app in a Citadel workspace to you, for one
+    /// project you are a member of (10 minutes, one use).
+    LinkCode {
+        #[arg(long)]
+        project: String,
+    },
 }
 
 fn load(home: &Home) -> Result<Config, ExitCode> {
@@ -129,6 +135,7 @@ fn main() -> ExitCode {
         Command::Project { cmd } => sw_mcp::cli_onboard::project(&home, cmd),
         Command::Invite { cmd } => sw_mcp::cli_onboard::invite(&home, cmd),
         Command::Join { cmd } => sw_mcp::cli_onboard::join(&home, cmd),
+        Command::LinkCode { project } => sw_mcp::cli_onboard::link_code(&home, project),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

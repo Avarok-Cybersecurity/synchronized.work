@@ -156,6 +156,10 @@ pub enum Request {
         accept: bool,
         reason: Option<String>,
     },
+    /// A link code for the Citadel App, bound to `project` (10 minutes, one use).
+    LinkCode {
+        project: String,
+    },
 }
 
 impl Request {
@@ -168,6 +172,7 @@ impl Request {
                 | Self::InviteRedeem { .. }
                 | Self::JoinRequests { .. }
                 | Self::JoinAnswer { .. }
+                | Self::LinkCode { .. }
         )
     }
 }

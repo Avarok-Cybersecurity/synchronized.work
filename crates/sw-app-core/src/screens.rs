@@ -1,0 +1,199 @@
+//! The screens that are not the live tree, as `sw-graph` draw lists like the tree itself: a
+//! title, paragraphs wrapped to the pane, and one `Region` button per next action, so every
+//! action is reachable by keyboard and screen reader on a CW-5 host (and by pointer
+//! hit-testing on an ABI-1 host). Buttons go on as many rows as the pane needs.
+
+use sw_graph::{DrawOp, RegionRole};
+
+use crate::copy;
+use crate::ctx::{AppTheme, Size};
+use crate::painter::TextMeasure;
+use crate::screen::{EmptyReason, LinkScreen, NextAction, Screen};
+use crate::wrap::wrap;
+
+pub use crate::composer::{Composer, composer_footer};
+
+struct Column<'t> {
+    theme: &'t AppTheme,
+    measure: &'t dyn TextMeasure,
+    /// The pane's width inside its margins.
+    width: f32,
+    ops: Vec<DrawOp>,
+    y: f32,
+}
+
+impl<'t> Column<'t> {
+    fn new(theme: &'t AppTheme, size: Size, measure: &'t dyn TextMeasure) -> Self {
+        Self {
+            theme,
+            measure,
+            width: inner_width(theme, size),
+            ops: vec![DrawOp::Clear {
+                color: theme.graph.background,
+            }],
+            y: theme.margin,
+        }
+    }
+
+    fn text(&mut self, text: &str, px: f32, color: u32) {
+        for line in wrap(text, px, self.width, self.measure) {
+            self.y += px.max(self.theme.line_height);
+            self.ops.push(DrawOp::FillText {
+                x: self.theme.margin,
+                y: self.y,
+                text: line,
+                size: px,
+                color,
+            });
+        }
+    }
+
+    fn lines<S: AsRef<str>>(&mut self, lines: &[S], color: u32) {
+        for line in lines {
+            self.text(line.as_ref(), self.theme.body_px, color);
+        }
+    }
+
+    fn field(&mut self, link: &LinkScreen) {
+        let t = self.theme;
+        let (w, h) = t.button_size;
+        self.y += t.line_height / 2.0;
+        let (x, y) = (t.margin, self.y);
+        let shown: String = (0..sw_protocol::payload::Link::CODE_LEN)
+            .map(|i| link.entry.code().chars().nth(i).unwrap_or('_'))
+            .collect();
+        self.ops.push(DrawOp::FillRect {
+            x,
+            y,
+            w,
+            h,
+            color: t.field,
+        });
+        self.ops.push(DrawOp::StrokeRect {
+            x,
+            y,
+            w,
+            h,
+            line_width: t.graph.edge_width,
+            color: t.muted,
+        });
+        self.ops.push(DrawOp::FillText {
+            x: x + t.body_px / 2.0,
+            y: y + (h + t.body_px) / 2.0,
+            text: shown,
+            size: t.body_px,
+            color: t.text,
+        });
+        self.ops.push(DrawOp::Region {
+            id: "link-code".into(),
+            x,
+            y,
+            w,
+            h,
+            label: format!("{}: {}", copy::LINK_FIELD_LABEL, link.entry.code()),
+            role: RegionRole::Group,
+        });
+        self.y += h;
+    }
+
+    /// One row while they fit, then the next row; each as wide as its label needs.
+    fn buttons(&mut self, actions: &[NextAction]) {
+        let t = self.theme;
+        let h = t.button_size.1;
+        let (mut x, mut y) = (t.margin, self.y + t.line_height);
+        for action in actions {
+            let label = self.measure.width(action.label(), t.body_px) + t.body_px;
+            let w = t.button_size.0.max(label).min(self.width);
+            if x > t.margin && x + w > t.margin + self.width {
+                (x, y) = (t.margin, y + h + t.margin);
+            }
+            self.ops.push(DrawOp::FillRect {
+                x,
+                y,
+                w,
+                h,
+                color: t.button,
+            });
+            self.ops.push(DrawOp::FillText {
+                x: x + t.body_px / 2.0,
+                y: y + (h + t.body_px) / 2.0,
+                text: action.label().to_owned(),
+                size: t.body_px,
+                color: t.button_text,
+            });
+            self.ops.push(DrawOp::Region {
+                id: action.id().to_owned(),
+                x,
+                y,
+                w,
+                h,
+                label: action.label().to_owned(),
+                role: RegionRole::Button,
+            });
+            x += w + t.margin;
+        }
+        self.y = y + h;
+    }
+}
+
+pub(crate) fn inner_width(theme: &AppTheme, size: Size) -> f32 {
+    (size.width - 2.0 * theme.margin).max(0.0)
+}
+
+/// The draw list of every screen but [`Screen::Live`] (an empty list for that one), laid out
+/// for a pane of `size` with the host's `measure`.
+pub fn ops(
+    screen: &Screen,
+    theme: &AppTheme,
+    size: Size,
+    measure: &dyn TextMeasure,
+) -> Vec<DrawOp> {
+    let mut c = Column::new(theme, size, measure);
+    let (title, lines, color): (&str, Vec<String>, u32) = match screen {
+        Screen::Live => return Vec::new(),
+        Screen::Connecting => (
+            copy::CONNECTING_TITLE,
+            own(copy::CONNECTING_BODY),
+            theme.muted,
+        ),
+        Screen::NeedsLink(_) => (copy::LINK_TITLE, own(copy::LINK_BODY), theme.muted),
+        Screen::Empty(EmptyReason::NoProject) => (
+            copy::EMPTY_NO_PROJECT_TITLE,
+            own(copy::EMPTY_NO_PROJECT_BODY),
+            theme.muted,
+        ),
+        Screen::Empty(EmptyReason::NothingYet) => (
+            copy::EMPTY_NOTHING_TITLE,
+            own(copy::EMPTY_NOTHING_BODY),
+            theme.muted,
+        ),
+        Screen::Error(e) => (
+            e.title(),
+            e.lines(),
+            if e.is_failure() {
+                theme.error
+            } else {
+                theme.muted
+            },
+        ),
+    };
+    c.text(title, theme.title_px, theme.text);
+    c.lines(&lines, color);
+    if let Screen::NeedsLink(link) = screen {
+        c.field(link);
+        if link.pending.is_some() {
+            c.lines(&[copy::LINK_PENDING], theme.muted);
+        } else if let Some(refused) = &link.refused {
+            c.lines(&[copy::LINK_REFUSED], theme.error);
+            if let Some(reason) = &refused.reason {
+                c.lines(&[reason], theme.muted);
+            }
+        }
+    }
+    c.buttons(&screen.actions());
+    c.ops
+}
+
+fn own(lines: &[&str]) -> Vec<String> {
+    lines.iter().map(|s| (*s).to_owned()).collect()
+}

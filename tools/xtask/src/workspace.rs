@@ -17,6 +17,8 @@ pub const PURE_CRATES: &[&str] = &[
     "sw-crypto",
     "sw-client",
     "sw-graph",
+    "sw-view",
+    "sw-app-core",
 ];
 
 /// Every file under `dir`, skipping build output and VCS metadata.

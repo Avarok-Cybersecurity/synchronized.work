@@ -2,14 +2,14 @@
 //! the document the node's own server key signs. The node IS a Citadel server, so `citadel`
 //! is present, naming the `wss://` endpoint.
 
-use citadel_identity::{ServerKey, WELL_KNOWN_VERSION, WellKnownCitadel, WellKnownError};
+use citadel_identity::{WELL_KNOWN_VERSION, WellKnownCitadel, WellKnownError};
 
 use crate::provision::Provisioning;
 
 /// The served JSON: deterministic, so every isolate serves the same bytes for the same
 /// provisioning (`issued_at` is provisioned, not read from a clock).
 pub fn well_known_json(p: &Provisioning) -> Result<Vec<u8>, WellKnownError> {
-    let key = ServerKey::from_seed(&p.server_key_seed);
+    let key = p.server_key();
     let doc = WellKnownCitadel {
         v: WELL_KNOWN_VERSION,
         canonical_domain: p.identity.clone(),

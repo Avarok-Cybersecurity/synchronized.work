@@ -108,6 +108,11 @@ pub fn join(home: &Home, cmd: JoinCmd) -> Result<(), String> {
     ask(home, request)
 }
 
+/// A link code for the synchronized.work Citadel App, bound to `project`.
+pub fn link_code(home: &Home, project: String) -> Result<(), String> {
+    ask(home, Request::LinkCode { project })
+}
+
 /// Prints the link and match words, reads the one-time code from this terminal, and finishes.
 pub async fn sign_in(home: Home, config: Config) -> Result<(), String> {
     let mut entropy = OsEntropy;

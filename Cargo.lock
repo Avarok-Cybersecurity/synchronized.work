@@ -688,6 +688,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "citadel-app-sdk"
+version = "0.1.0"
+source = "git+https://github.com/Avarok-Cybersecurity/citadel-internal-service?rev=bcdb55f0f727be8fbabaff290c1a61f7e88ae749#bcdb55f0f727be8fbabaff290c1a61f7e88ae749"
+dependencies = [
+ "citadel-app-sdk-types",
+ "serde",
+]
+
+[[package]]
+name = "citadel-app-sdk-types"
+version = "0.1.0"
+source = "git+https://github.com/Avarok-Cybersecurity/citadel-internal-service?rev=bcdb55f0f727be8fbabaff290c1a61f7e88ae749#bcdb55f0f727be8fbabaff290c1a61f7e88ae749"
+dependencies = [
+ "ciborium",
+ "serde",
+]
+
+[[package]]
 name = "citadel-identity"
 version = "0.1.0"
 source = "git+https://github.com/Avarok-Cybersecurity/citadel-internal-service?rev=5b2374ec9958a31f7b4e2a45b37ca454e14911db#5b2374ec9958a31f7b4e2a45b37ca454e14911db"
@@ -4191,6 +4209,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "sw-app"
+version = "0.2.0"
+dependencies = [
+ "citadel-app-sdk",
+ "citadel-app-sdk-types",
+ "serde_json",
+ "sw-app-core",
+ "sw-graph",
+ "sw-view",
+]
+
+[[package]]
+name = "sw-app-core"
+version = "0.2.0"
+dependencies = [
+ "ciborium",
+ "sw-client",
+ "sw-crypto",
+ "sw-graph",
+ "sw-model",
+ "sw-protocol",
+ "sw-view",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "sw-bench"
 version = "0.2.0"
 dependencies = [
@@ -4233,6 +4278,23 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "zeroize",
+]
+
+[[package]]
+name = "sw-devnode"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "citadel-identity",
+ "citadel_sdk",
+ "data-encoding",
+ "serde_json",
+ "sw-mcp",
+ "sw-model",
+ "sw-node",
+ "sw-protocol",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -4297,11 +4359,17 @@ dependencies = [
  "data-encoding",
  "futures",
  "log",
+ "serde",
  "serde_json",
+ "sw-app",
+ "sw-app-core",
+ "sw-client",
  "sw-crypto",
+ "sw-graph",
  "sw-model",
  "sw-protocol",
  "sw-testkit",
+ "sw-view",
  "tokio",
  "zeroize",
 ]
@@ -4359,17 +4427,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "sw-view"
+version = "0.2.0"
+dependencies = [
+ "serde",
+ "sw-client",
+ "sw-graph",
+ "sw-model",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "sw-view-wasm"
 version = "0.2.0"
 dependencies = [
  "ciborium",
  "data-encoding",
- "serde",
  "serde_json",
  "sw-client",
- "sw-graph",
  "sw-model",
  "sw-protocol",
+ "sw-view",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]

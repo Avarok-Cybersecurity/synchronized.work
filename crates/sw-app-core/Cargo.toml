@@ -1,0 +1,24 @@
+[package]
+name = "sw-app-core"
+description = "PURE. Every decision of the synchronized.work Citadel App: the first-run state machine, the transport choice (citadel.session or the net.host long-poll), NOTIFY to host notifications, link-code redemption and the CW-5 / ABI-1 painters over sw-graph's one draw list. The host is behind ports; the SDK binding is a thin crate over this one."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sw-client.workspace = true
+sw-crypto.workspace = true
+sw-graph.workspace = true
+sw-model.workspace = true
+sw-protocol.workspace = true
+sw-view.workspace = true
+ciborium.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

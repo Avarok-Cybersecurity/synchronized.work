@@ -13,12 +13,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 sw-client.workspace = true
-sw-graph.workspace = true
 sw-model.workspace = true
 sw-protocol.workspace = true
+sw-view.workspace = true
 ciborium.workspace = true
 data-encoding.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

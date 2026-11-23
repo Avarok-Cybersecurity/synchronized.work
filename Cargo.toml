@@ -12,9 +12,13 @@ members = [
     "crates/sw-node",
     "crates/sw-store-do",
     "crates/sw-worker",
+    "crates/sw-view",
     "crates/sw-view-wasm",
+    "crates/sw-app-core",
+    "crates/sw-app",
     "tools/xtask",
     "tools/sw-bench",
+    "tools/sw-devnode",
     "tools/sw-release-sign",
 ]
 
@@ -35,8 +39,12 @@ sw-protocol = { path = "crates/sw-protocol", version = "0.2.0" }
 sw-crypto = { path = "crates/sw-crypto", version = "0.2.0" }
 sw-client = { path = "crates/sw-client", version = "0.2.0" }
 sw-graph = { path = "crates/sw-graph", version = "0.2.0" }
+sw-view = { path = "crates/sw-view", version = "0.2.0" }
+sw-app-core = { path = "crates/sw-app-core", version = "0.2.0" }
+sw-app = { path = "crates/sw-app", version = "0.2.0" }
 sw-testkit = { path = "crates/sw-testkit", version = "0.2.0" }
 sw-node = { path = "crates/sw-node", version = "0.2.0" }
+sw-mcp = { path = "crates/sw-mcp", version = "0.2.0" }
 sw-store-do = { path = "crates/sw-store-do", version = "0.2.0" }
 sw-winacl = { path = "crates/sw-winacl", version = "0.2.0" }
 ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "zeroize"] }
@@ -64,6 +72,12 @@ citadel_user = { git = "https://github.com/Avarok-Cybersecurity/Citadel-Protocol
 # The portable identity (lane I1, frozen identity-api contract): the IdentityPort adapter and the
 # server key behind /.well-known/citadel. Pinned to the published batch-1116 commit.
 citadel-identity = { git = "https://github.com/Avarok-Cybersecurity/citadel-internal-service", rev = "5b2374ec9958a31f7b4e2a45b37ca454e14911db" }
+# The Citadel app guest SDK and its ABI types (citadel_app_abi_1, minor 1: node pages, the
+# citadel.session group, the canvas extension), pinned to the published feat/sw-app-1123 commit.
+# Only sw-app uses them; the SDK itself builds for wasm32-unknown-unknown alone, so sw-app takes
+# it for that target only and its native tests reach the types crate (no_std + alloc).
+citadel-app-sdk = { git = "https://github.com/Avarok-Cybersecurity/citadel-internal-service", rev = "bcdb55f0f727be8fbabaff290c1a61f7e88ae749" }
+citadel-app-sdk-types = { git = "https://github.com/Avarok-Cybersecurity/citadel-internal-service", rev = "bcdb55f0f727be8fbabaff290c1a61f7e88ae749" }
 # lattice-db main at 88b9084a (v0.5.0, untagged): the storage trait, the wasm DurableEngine and
 # the exported LatticeStorage conformance suite.
 latticedb-core = { git = "https://github.com/Avarok-Cybersecurity/lattice-db", rev = "88b9084a3ae45aa1c44617ffc605d2082c111b8e" }

@@ -1,4 +1,4 @@
-// The view graph the Rust core returns (crates/sw-view-wasm/src/view.rs, serde names). It is
+// The view graph the Rust core returns (crates/sw-view/src/view.rs, serde names). It is
 // checked here, at the boundary, so the rest of the view never handles `unknown`.
 
 export type Kind = 'project' | 'task' | 'person' | 'agent' | 'progress';

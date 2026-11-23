@@ -3,7 +3,7 @@
 //! malformed. The host is the Worker (`[vars]` in wrangler.toml, secrets by
 //! `wrangler secret put`); the names below are the SSOT for both.
 
-use citadel_identity::{CanonicalDomain, MlDsa65Pk, canonical_domain};
+use citadel_identity::{CanonicalDomain, MlDsa65Pk, ServerKey, canonical_domain};
 
 use sw_model::{Approval, PersonPolicy};
 
@@ -104,6 +104,11 @@ impl std::fmt::Debug for Provisioning {
 }
 
 impl Provisioning {
+    /// The node's server key, expanded from its provisioned seed.
+    pub fn server_key(&self) -> ServerKey {
+        ServerKey::from_seed(&self.server_key_seed)
+    }
+
     pub fn from_source(source: &dyn Source) -> Result<Self, ProvisionError> {
         let identity =
             canonical_domain(IDENTITY_DOMAIN).map_err(|e| ProvisionError::Malformed {

@@ -21,6 +21,8 @@ ciborium.workspace = true
 zeroize.workspace = true
 log.workspace = true
 serde_json.workspace = true
+# The workspace protocol's frames of the server identity challenge (core/challenge/frame.rs).
+serde.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 citadel_sdk = { workspace = true, features = ["std", "filesystem"] }
@@ -29,6 +31,14 @@ citadel_user = { workspace = true, features = ["std", "filesystem"] }
 [dev-dependencies]
 sw-testkit.workspace = true
 data-encoding.workspace = true
+# The viewer's fold and the Citadel App's core, driven against this node in the tests.
+sw-client.workspace = true
+sw-app-core.workspace = true
+# The constants the shipped App module compiles with (server, HELLO's client_build), so the
+# recorded session transcript is the one that module sends.
+sw-app.workspace = true
+sw-graph.workspace = true
+sw-view.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 # The SDK's own localhost test harness: a real Citadel client dials the node in the tests.

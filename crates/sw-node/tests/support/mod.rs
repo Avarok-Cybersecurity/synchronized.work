@@ -2,6 +2,7 @@
 //! issuer, and builders for the envelopes they send. Every key is deterministic.
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
+pub mod challenge;
 pub mod identity_kat;
 pub mod rules;
 pub mod vars;
