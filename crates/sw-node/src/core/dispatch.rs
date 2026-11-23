@@ -25,13 +25,17 @@ pub fn task_key(id: &str) -> String {
 }
 
 impl NodeCore {
-    /// Applies one `SwMessage` from session `cid`, or refuses it with nothing changed.
+    /// Applies one `SwMessage` from session `cid` (or answers the server identity challenge,
+    /// which is not one), or refuses it with nothing changed.
     pub fn received(
         &mut self,
         cid: Cid,
         bytes: &[u8],
         now_ms: u64,
     ) -> Result<Vec<Effect>, NodeRefusal> {
+        if let Some(answered) = self.identity_challenge(cid, bytes, now_ms) {
+            return answered;
+        }
         let message = SwMessage::from_bytes(bytes)?;
         if let SwMessage::Unsigned(_) = &message {
             let payload = accept_unsigned(message)?;

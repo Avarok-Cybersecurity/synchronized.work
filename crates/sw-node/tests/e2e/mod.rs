@@ -2,6 +2,8 @@
 //! the C2S channel.
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
+mod raw;
+
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -64,29 +66,13 @@ pub struct Client {
 }
 
 impl Client {
+    /// Registers and signs in, then says `HELLO`.
     pub async fn sign_in(
         remote: &NodeRemote<StackedRatchet>,
         addr: SocketAddr,
         account: Account,
     ) -> Result<Self, NetworkError> {
-        let user = account.username.clone();
-        remote
-            .register_with_defaults(addr, user.as_str(), user.as_str(), PASSWORD, LOOPBACK_CERTS)
-            .await?;
-        let mut conn = remote
-            .connect_with_defaults(
-                AuthenticationRequest::credentialed(user, PASSWORD),
-                LOOPBACK_CERTS,
-            )
-            .await?;
-        let (tx, rx) = conn.take_channel().expect("a C2S channel").split();
-        let mut client = Self {
-            account,
-            cid: conn.cid,
-            tx,
-            rx,
-            seq: 0,
-        };
+        let mut client = Self::open(remote, addr, account).await?;
         let hello = SwMessage::Unsigned(Payload::Hello(Hello {
             protocol_version: 1,
             endpoint_kind: HelloKind::Controller,

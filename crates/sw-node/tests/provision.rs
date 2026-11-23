@@ -113,3 +113,21 @@ fn legacy_registration_is_refused_or_a_positive_count_of_hashes() {
         );
     }
 }
+
+/// Control: drop the floor in `limits::challenge_interval` → 999 ms is accepted, red.
+#[test]
+fn a_challenge_interval_under_a_second_is_malformed() {
+    use sw_node::limits::VAR_IDENTITY_CHALLENGE_INTERVAL_MS;
+    let p = Provisioning::from_source(&complete()).unwrap();
+    assert_eq!(p.limits.identity_challenge_interval_ms, 1000);
+    let mut vars = complete();
+    vars.0
+        .insert(VAR_IDENTITY_CHALLENGE_INTERVAL_MS, "999".into());
+    assert!(matches!(
+        Provisioning::from_source(&vars),
+        Err(ProvisionError::Malformed {
+            name: VAR_IDENTITY_CHALLENGE_INTERVAL_MS,
+            ..
+        })
+    ));
+}

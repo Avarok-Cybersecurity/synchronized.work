@@ -12,7 +12,7 @@ use citadel_user::credentials::CredentialRequirements;
 use sw_protocol::ports::Clock;
 
 use crate::core::load::LoadError;
-use crate::core::{NodeCore, Rules};
+use crate::core::{NodeCore, Rules, ServerIdentity};
 use crate::kernel::SwKernel;
 use crate::provision::Provisioning;
 use crate::store::{NodeStore, StoreError};
@@ -111,6 +111,7 @@ pub async fn prepare<S: NodeStore, C: Clock + Send + Sync + 'static>(
         sign_in_issuer: p.sign_in_issuer.as_bytes().to_vec(),
         limits: p.limits,
         new_person_policy: p.new_person_policy,
+        server_identity: Some(ServerIdentity::new(p.identity.clone(), p.server_key())),
     });
     let mut stored = store.load_all().await.map_err(StartError::Store)?;
     // Sorted, so an entry is loaded before the keys nested under it (a note before its acks).

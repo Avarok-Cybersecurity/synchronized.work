@@ -45,6 +45,11 @@ pub enum NodeRefusal {
     /// A `TASK_WRITE` carrying `embedding`: the wire's `uint ≤ 65535` form has no defined map
     /// from the signed buckets `sw-model` recomputes, so it cannot be checked (C0 gap).
     EmbeddingUnverifiable,
+    /// A server identity challenge to a node provisioned with no server key.
+    NoServerIdentity,
+    /// A server identity challenge sooner than the provisioned interval after the last answer
+    /// to the same session.
+    ChallengeTooSoon,
     Malformed,
 }
 

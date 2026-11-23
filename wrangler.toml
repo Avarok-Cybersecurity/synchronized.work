@@ -97,6 +97,8 @@ SW_SUBSCRIPTIONS_PER_SESSION = "8"
 SW_SUBSCRIBERS_PER_PROJECT = "256"
 SW_LINK_REDEEM_PER_MIN = "5"
 SW_LINK_REDEEM_NODE_PER_MIN = "60"
+# The server identity challenge (server-identity-challenge.md §2): one answer a second per session.
+SW_IDENTITY_CHALLENGE_INTERVAL_MS = "1000"
 # The SDK's server limits. Before sign-in: 16 connections per address (a NAT's clients share
 # one), 256 in all. Legacy registrations (the server hashing a password) are refused: clients
 # register post-quantum. Queued outbound bytes: the inbox's 4 MiB per stream, 32 MiB in all,

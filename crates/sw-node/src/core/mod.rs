@@ -3,6 +3,7 @@
 //! signed message passes `sw_protocol::gate::verify` — the one gate every party shares —
 //! before anything below looks at it.
 
+mod challenge;
 mod codec;
 mod coop;
 mod directory;
@@ -22,6 +23,7 @@ mod significant;
 mod task;
 mod tree;
 
+pub use challenge::{ServerIdentity, frame as challenge_frame};
 pub use codec::{task_from_bytes, task_to_bytes};
 pub use directory::Directory;
 pub use feed::serve::UNRECORDED_SENDER;
@@ -69,6 +71,8 @@ pub struct Rules {
     pub sign_in_issuer: Vec<u8>,
     pub limits: Limits,
     pub new_person_policy: PersonPolicy,
+    /// What a server identity challenge is answered with; a core without one refuses it.
+    pub server_identity: Option<ServerIdentity>,
 }
 
 #[derive(Debug)]
@@ -86,6 +90,7 @@ pub struct NodeCore {
     online: BTreeSet<Cid>,
     /// Sessions that sent `HELLO`, the first message of every session.
     greeted: BTreeSet<Cid>,
+    answered: challenge::Answered,
 }
 
 impl NodeCore {
@@ -103,6 +108,7 @@ impl NodeCore {
             links: link::Links::default(),
             online: BTreeSet::new(),
             greeted: BTreeSet::new(),
+            answered: challenge::Answered::default(),
         }
     }
 
@@ -141,6 +147,7 @@ impl NodeCore {
     pub fn disconnected(&mut self, cid: Cid) {
         self.online.remove(&cid);
         self.greeted.remove(&cid);
+        self.answered.forget(cid);
         self.feed.drop_session(cid);
     }
 

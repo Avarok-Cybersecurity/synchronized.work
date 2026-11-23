@@ -4359,6 +4359,7 @@ dependencies = [
  "data-encoding",
  "futures",
  "log",
+ "serde",
  "serde_json",
  "sw-app",
  "sw-app-core",

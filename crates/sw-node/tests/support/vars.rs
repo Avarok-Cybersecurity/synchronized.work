@@ -49,6 +49,10 @@ pub fn complete() -> Vars {
         (sw_node::limits::VAR_SUBSCRIBERS_PER_PROJECT, "256".into()),
         (sw_node::limits::VAR_LINK_REDEEM_PER_MIN, "5".into()),
         (sw_node::limits::VAR_LINK_REDEEM_NODE_PER_MIN, "60".into()),
+        (
+            sw_node::limits::VAR_IDENTITY_CHALLENGE_INTERVAL_MS,
+            "1000".into(),
+        ),
         (sw_node::limits::VAR_PROVISIONAL_PER_IP, "64".into()),
         (sw_node::limits::VAR_PROVISIONAL_TOTAL, "256".into()),
         (

@@ -17,6 +17,11 @@ pub const VAR_SUBSCRIPTIONS_PER_SESSION: &str = "SW_SUBSCRIPTIONS_PER_SESSION";
 pub const VAR_SUBSCRIBERS_PER_PROJECT: &str = "SW_SUBSCRIBERS_PER_PROJECT";
 pub const VAR_LINK_REDEEM_PER_MIN: &str = "SW_LINK_REDEEM_PER_MIN";
 pub const VAR_LINK_REDEEM_NODE_PER_MIN: &str = "SW_LINK_REDEEM_NODE_PER_MIN";
+pub const VAR_IDENTITY_CHALLENGE_INTERVAL_MS: &str = "SW_IDENTITY_CHALLENGE_INTERVAL_MS";
+
+/// `server-identity-challenge.md` §2: a session is answered at most once per second, so a
+/// shorter interval is malformed.
+pub const MIN_IDENTITY_CHALLENGE_INTERVAL_MS: u64 = 1000;
 
 /// The SDK's server limits (`ServerLimits`): connections held before sign-in, per address and
 /// in all; legacy registrations hashed at once, or `refused`; bytes queued per stream and in all.
@@ -45,6 +50,8 @@ pub struct Limits {
     /// `LINK_REDEEM` attempts one account may make per minute, and the whole node.
     pub link_redeem_per_min: usize,
     pub link_redeem_node_per_min: usize,
+    /// The least time between two answered server identity challenges of one session.
+    pub identity_challenge_interval_ms: u64,
 }
 
 impl Limits {
@@ -60,8 +67,20 @@ impl Limits {
             subscribers_per_project: number(source, VAR_SUBSCRIBERS_PER_PROJECT)?,
             link_redeem_per_min: number(source, VAR_LINK_REDEEM_PER_MIN)?,
             link_redeem_node_per_min: number(source, VAR_LINK_REDEEM_NODE_PER_MIN)?,
+            identity_challenge_interval_ms: challenge_interval(source)?,
         })
     }
+}
+
+fn challenge_interval(source: &dyn Source) -> Result<u64, ProvisionError> {
+    let ms: u64 = number(source, VAR_IDENTITY_CHALLENGE_INTERVAL_MS)?;
+    if ms < MIN_IDENTITY_CHALLENGE_INTERVAL_MS {
+        return Err(ProvisionError::Malformed {
+            name: VAR_IDENTITY_CHALLENGE_INTERVAL_MS,
+            why: format!("{ms} ms answers more than one challenge a second"),
+        });
+    }
+    Ok(ms)
 }
 
 /// The SDK's limits for this server; each value is a positive count, zero is malformed.

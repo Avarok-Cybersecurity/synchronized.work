@@ -22,11 +22,14 @@ pub fn rules(issuer: &SigningKey) -> Rules {
             subscribers_per_project: 3,
             link_redeem_per_min: 3,
             link_redeem_node_per_min: 5,
+            // The contract's one second: the tests that reach it step the clock past it.
+            identity_challenge_interval_ms: 1000,
         },
         new_person_policy: PersonPolicy {
             approval: Approval::Manual,
             rate_per_min: 10,
         },
+        server_identity: None,
     }
 }
 

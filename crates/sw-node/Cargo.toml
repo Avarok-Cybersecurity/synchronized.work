@@ -21,6 +21,8 @@ ciborium.workspace = true
 zeroize.workspace = true
 log.workspace = true
 serde_json.workspace = true
+# The workspace protocol's frames of the server identity challenge (core/challenge/frame.rs).
+serde.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 citadel_sdk = { workspace = true, features = ["std", "filesystem"] }
