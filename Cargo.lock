@@ -4191,6 +4191,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "sw-app-core"
+version = "0.2.0"
+dependencies = [
+ "ciborium",
+ "sw-client",
+ "sw-crypto",
+ "sw-graph",
+ "sw-model",
+ "sw-protocol",
+ "sw-view",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "sw-bench"
 version = "0.2.0"
 dependencies = [
@@ -4359,17 +4374,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "sw-view"
+version = "0.2.0"
+dependencies = [
+ "serde",
+ "sw-client",
+ "sw-graph",
+ "sw-model",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "sw-view-wasm"
 version = "0.2.0"
 dependencies = [
  "ciborium",
  "data-encoding",
- "serde",
  "serde_json",
  "sw-client",
- "sw-graph",
  "sw-model",
  "sw-protocol",
+ "sw-view",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]

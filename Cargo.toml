@@ -12,7 +12,9 @@ members = [
     "crates/sw-node",
     "crates/sw-store-do",
     "crates/sw-worker",
+    "crates/sw-view",
     "crates/sw-view-wasm",
+    "crates/sw-app-core",
     "tools/xtask",
     "tools/sw-bench",
     "tools/sw-release-sign",
@@ -35,6 +37,7 @@ sw-protocol = { path = "crates/sw-protocol", version = "0.2.0" }
 sw-crypto = { path = "crates/sw-crypto", version = "0.2.0" }
 sw-client = { path = "crates/sw-client", version = "0.2.0" }
 sw-graph = { path = "crates/sw-graph", version = "0.2.0" }
+sw-view = { path = "crates/sw-view", version = "0.2.0" }
 sw-testkit = { path = "crates/sw-testkit", version = "0.2.0" }
 sw-node = { path = "crates/sw-node", version = "0.2.0" }
 sw-store-do = { path = "crates/sw-store-do", version = "0.2.0" }

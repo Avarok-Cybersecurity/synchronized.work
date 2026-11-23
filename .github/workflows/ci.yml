@@ -21,7 +21,7 @@ env:
   RUSTFLAGS: -D warnings
   # The wasm test runner must match the wasm-bindgen pinned in Cargo.toml.
   WASM_BINDGEN_VERSION: 0.2.129
-  PURE_CRATES: -p sw-model -p sw-protocol -p sw-crypto -p sw-client -p sw-graph
+  PURE_CRATES: -p sw-model -p sw-protocol -p sw-crypto -p sw-client -p sw-graph -p sw-view -p sw-app-core
 
 jobs:
   lint:

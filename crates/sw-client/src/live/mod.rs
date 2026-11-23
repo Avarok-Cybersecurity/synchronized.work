@@ -35,6 +35,16 @@ impl From<WireError> for LiveError {
     }
 }
 
+/// The viewer's `HELLO`, the first message of every session. A client that is not subscribed
+/// yet (the App before it is linked) sends it alone.
+pub fn hello(client_build: &str) -> Payload {
+    Payload::Hello(Hello {
+        protocol_version: PROTOCOL_VERSION,
+        endpoint_kind: HelloKind::Viewer,
+        client_build: client_build.to_owned(),
+    })
+}
+
 #[derive(Debug, Clone)]
 pub struct LiveProject {
     state: ProjectState,
@@ -56,11 +66,7 @@ impl LiveProject {
 
     /// `HELLO` then `SUBSCRIBE` since the cursor. Call on every (re)connect.
     pub fn subscribe(&self, port: &mut dyn SessionPort) -> Result<(), LiveError> {
-        let hello = Payload::Hello(Hello {
-            protocol_version: PROTOCOL_VERSION,
-            endpoint_kind: HelloKind::Viewer,
-            client_build: self.client_build.clone(),
-        });
+        let hello = hello(&self.client_build);
         let subscribe = Payload::Subscribe(Subscribe {
             op: SubscribeOp::Subscribe,
             project_id: self.state.project_id.clone(),
@@ -77,10 +83,16 @@ impl LiveProject {
     pub fn pump(&mut self, port: &mut dyn SessionPort) -> Result<usize, LiveError> {
         let mut applied = 0;
         while let Some(bytes) = port.poll_recv()? {
-            if self.state.fold(&SwMessage::from_bytes(&bytes)?)? == Folded::Applied {
+            if self.apply(&SwMessage::from_bytes(&bytes)?)? == Folded::Applied {
                 applied += 1;
             }
         }
         Ok(applied)
+    }
+
+    /// Folds one message a caller has already decoded (a client that also reads other types
+    /// from the same session, such as `NOTIFY`, decodes once and hands the rest here).
+    pub fn apply(&mut self, message: &SwMessage) -> Result<Folded, LiveError> {
+        Ok(self.state.fold(message)?)
     }
 }
