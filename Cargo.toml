@@ -46,7 +46,6 @@ sw-node = { path = "crates/sw-node", version = "0.2.0" }
 sw-mcp = { path = "crates/sw-mcp", version = "0.2.0" }
 sw-store-do = { path = "crates/sw-store-do", version = "0.2.0" }
 sw-winacl = { path = "crates/sw-winacl", version = "0.2.0" }
-sw-app-core = { path = "crates/sw-app-core", version = "0.2.0" }
 ml-dsa = { version = "0.1.1", default-features = false, features = ["alloc", "zeroize"] }
 ml-kem = { version = "0.3.2", default-features = false, features = ["alloc", "zeroize", "hazmat"] }
 sha3 = { version = "0.11", default-features = false }
