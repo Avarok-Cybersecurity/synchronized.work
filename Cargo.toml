@@ -41,6 +41,7 @@ sw-client = { path = "crates/sw-client", version = "0.2.0" }
 sw-graph = { path = "crates/sw-graph", version = "0.2.0" }
 sw-view = { path = "crates/sw-view", version = "0.2.0" }
 sw-app-core = { path = "crates/sw-app-core", version = "0.2.0" }
+sw-app = { path = "crates/sw-app", version = "0.2.0" }
 sw-testkit = { path = "crates/sw-testkit", version = "0.2.0" }
 sw-node = { path = "crates/sw-node", version = "0.2.0" }
 sw-mcp = { path = "crates/sw-mcp", version = "0.2.0" }

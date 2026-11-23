@@ -4360,6 +4360,7 @@ dependencies = [
  "futures",
  "log",
  "serde_json",
+ "sw-app",
  "sw-app-core",
  "sw-client",
  "sw-crypto",

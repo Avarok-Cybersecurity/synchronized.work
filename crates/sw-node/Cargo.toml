@@ -32,6 +32,9 @@ data-encoding.workspace = true
 # The viewer's fold and the Citadel App's core, driven against this node in the tests.
 sw-client.workspace = true
 sw-app-core.workspace = true
+# The constants the shipped App module compiles with (server, HELLO's client_build), so the
+# recorded session transcript is the one that module sends.
+sw-app.workspace = true
 sw-graph.workspace = true
 sw-view.workspace = true
 
