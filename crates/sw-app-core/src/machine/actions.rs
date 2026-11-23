@@ -47,13 +47,15 @@ impl<M: TextMeasure> App<M> {
         }
     }
 
-    /// Reopens what failed; the fold keeps its cursor, so nothing already seen is lost.
+    /// Reopens what failed; the fold keeps its cursor, so nothing already seen is lost. A
+    /// member without an identity may have one now: that attempt starts over.
     fn retry(&mut self, out: &mut Vec<Effect>) {
         let Screen::Error(error) = self.screen.clone() else {
             return;
         };
         self.set(Screen::Connecting);
         match (error, self.transport) {
+            (AppError::NoIdentity, _) => self.begin(out),
             (AppError::Storage { .. }, _) => {
                 self.link = None;
                 self.load_link(out);

@@ -20,13 +20,22 @@ impl<M: TextMeasure> App<M> {
         }
     }
 
+    /// After a `no_identity` refusal, the long-poll failing is shown as what is missing.
     pub(super) fn fail(&mut self, error: AppError) {
+        let error = if self.no_identity && error.is_fallback_failure() {
+            AppError::NoIdentity
+        } else {
+            error
+        };
         self.set(Screen::Error(error));
     }
 
+    /// One attempt from the start: the transport is chosen again and the session opened first.
     pub(super) fn begin(&mut self, out: &mut Vec<Effect>) {
         self.set(Screen::Connecting);
         self.dirty = true;
+        self.no_identity = false;
+        self.greeted = false;
         match transport::choose(&self.ctx.granted) {
             Ok(t) => self.transport = Some(t),
             Err(e) => return self.fail(e),
@@ -80,6 +89,7 @@ impl<M: TextMeasure> App<M> {
     }
 
     pub(super) fn open_failed(&mut self, reason: &str, out: &mut Vec<Effect>) {
+        self.no_identity = transport::is_no_identity(reason);
         match transport::after_open_failure(reason, &self.ctx.granted) {
             Ok(t) => {
                 self.transport = Some(t);

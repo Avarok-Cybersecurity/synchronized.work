@@ -3,6 +3,7 @@
 use crate::copy;
 use crate::link::{CodeEntry, Refused};
 use crate::painter::FrameError;
+use crate::refusal::OpenRefusal;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Screen {
@@ -38,7 +39,8 @@ pub enum EmptyReason {
 pub enum AppError {
     /// Neither `citadel.session` nor `net.host` is granted.
     NoTransport,
-    /// The open answered `no_identity` and the fallback cannot stand in.
+    /// The open answered `no_identity` (this workspace account has no Citadel identity) and
+    /// the `net.host` long-poll is not granted, failed, or has no saved link to follow.
     NoIdentity,
     /// The fallback was chosen, but this node was never linked.
     NotLinkedOnFallback,
@@ -115,16 +117,69 @@ impl NextAction {
 }
 
 impl AppError {
-    pub fn next(&self) -> NextAction {
+    /// The actions its screen offers, primary first.
+    pub fn actions(&self) -> Vec<NextAction> {
         match self {
-            Self::NoTransport | Self::NoIdentity | Self::NotLinkedOnFallback => {
-                NextAction::OpenSite
+            Self::NoTransport | Self::NotLinkedOnFallback => vec![NextAction::OpenSite],
+            Self::NoIdentity | Self::OpenFailed { .. } => {
+                vec![NextAction::Retry, NextAction::OpenSite]
             }
-            _ => NextAction::Retry,
+            Self::SessionClosed { .. }
+            | Self::Wire
+            | Self::Send { .. }
+            | Self::Receive { .. }
+            | Self::Tree { .. }
+            | Self::Http { .. }
+            | Self::HttpFailed { .. }
+            | Self::Storage { .. }
+            | Self::Frame(_) => vec![NextAction::Retry],
         }
     }
 
-    /// The lines under the error title.
+    /// The `net.host` long-poll could not stand in: after a `no_identity` refusal these are
+    /// shown as [`AppError::NoIdentity`], the cause the member can act on.
+    pub fn is_fallback_failure(&self) -> bool {
+        match self {
+            Self::NotLinkedOnFallback | Self::Http { .. } | Self::HttpFailed { .. } => true,
+            Self::NoTransport
+            | Self::NoIdentity
+            | Self::SessionClosed { .. }
+            | Self::OpenFailed { .. }
+            | Self::Wire
+            | Self::Send { .. }
+            | Self::Receive { .. }
+            | Self::Tree { .. }
+            | Self::Storage { .. }
+            | Self::Frame(_) => false,
+        }
+    }
+
+    /// Its own title for what is missing rather than broken; the error title otherwise.
+    pub fn title(&self) -> &'static str {
+        match self {
+            Self::NoIdentity => copy::NO_IDENTITY_TITLE,
+            Self::NoTransport
+            | Self::NotLinkedOnFallback
+            | Self::SessionClosed { .. }
+            | Self::OpenFailed { .. }
+            | Self::Wire
+            | Self::Send { .. }
+            | Self::Receive { .. }
+            | Self::Tree { .. }
+            | Self::Http { .. }
+            | Self::HttpFailed { .. }
+            | Self::Storage { .. }
+            | Self::Frame(_) => copy::ERROR_TITLE,
+        }
+    }
+
+    /// Drawn as a failure: everything under the error title. Nothing is wrong when something
+    /// is only missing, so that screen is drawn in the calm tone.
+    pub fn is_failure(&self) -> bool {
+        self.title() == copy::ERROR_TITLE
+    }
+
+    /// The paragraphs under the title.
     pub fn lines(&self) -> Vec<String> {
         let own = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect();
         let with = |head: &str, tail: String| {
@@ -132,10 +187,17 @@ impl AppError {
         };
         match self {
             Self::NoTransport => own(copy::ERROR_NO_TRANSPORT),
-            Self::NoIdentity => own(copy::ERROR_NO_IDENTITY),
+            Self::NoIdentity => own(copy::NO_IDENTITY_BODY),
             Self::NotLinkedOnFallback => own(copy::ERROR_NOT_LINKED_FALLBACK),
             Self::SessionClosed { reason } => with(copy::ERROR_SESSION_CLOSED, reason.clone()),
-            Self::OpenFailed { reason } => with(copy::ERROR_OPEN_FAILED, reason.clone()),
+            Self::OpenFailed { reason } => {
+                let refusal = OpenRefusal::of(reason);
+                let mut lines: Vec<String> = own(refusal.lines());
+                if refusal == OpenRefusal::Other {
+                    lines.push(format!("{} {reason}", copy::REFUSED_DETAIL));
+                }
+                lines
+            }
             Self::Wire => own(&[copy::ERROR_WIRE, copy::ERROR_NEXT_RETRY]),
             Self::Send { reason } => with(copy::ERROR_SEND, reason.clone()),
             Self::Receive { reason } => with(copy::ERROR_RECEIVE, reason.clone()),
@@ -159,7 +221,7 @@ impl Screen {
                 vec![NextAction::EnterLinkCode, NextAction::OpenSite]
             }
             Self::Empty(EmptyReason::NothingYet) => vec![NextAction::OpenSite],
-            Self::Error(e) => vec![e.next()],
+            Self::Error(e) => e.actions(),
         }
     }
 }

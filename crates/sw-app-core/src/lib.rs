@@ -20,10 +20,12 @@ pub mod link;
 mod machine;
 pub mod notify;
 pub mod painter;
+pub mod refusal;
 pub mod screen;
 pub mod screens;
 pub mod session;
 pub mod transport;
+pub mod wrap;
 
 pub use command::{DrawCommand, RegionRole};
 pub use ctx::{

@@ -121,6 +121,8 @@ pub struct App<M> {
     transport: Option<Transport>,
     session: PushedSession,
     fallback: FallbackPort,
+    /// This attempt's open was refused with `no_identity` (until the next attempt).
+    no_identity: bool,
     /// Whether this session's `HELLO` (and `SUBSCRIBE`) went out since it last connected.
     greeted: bool,
     link: Option<Option<LinkRecord>>,
@@ -144,6 +146,7 @@ impl<M: TextMeasure> App<M> {
             screen: Screen::Connecting,
             transport: None,
             fallback: FallbackPort::new(),
+            no_identity: false,
             greeted: false,
             link: None,
             live: None,
