@@ -6,15 +6,22 @@
 
 use ciborium::value::Value;
 use sw_app_core::*;
-use sw_graph::{Motion, Spring, Theme};
+use sw_graph::Motion;
 use sw_model::IdFp;
 use sw_protocol::payload::{Event, EventBody, Notify, PadReceipt, Payload};
 use sw_protocol::signed::SwMessage;
 use sw_protocol::wire::Raw;
-use sw_view::{KindSizes, ViewParams};
 
 pub const ALICE: &str = "3foriftckvpoy2rh";
 pub const NODE: &str = "node-7";
+
+mod counted;
+pub mod fit_checks;
+mod fixed;
+#[allow(unused_imports)]
+pub use counted::Counted;
+#[allow(unused_imports)]
+pub use fixed::{FULL, config, theme};
 
 /// Half the pixel size per character: a stand-in for the host's `MeasureText`.
 #[derive(Debug, Clone, Copy)]
@@ -25,52 +32,6 @@ impl TextMeasure for FixedAdvance {
         text.chars().count() as f32 * px / 2.0
     }
 }
-
-pub fn theme(motion: Motion) -> AppTheme {
-    AppTheme {
-        graph: Theme {
-            background: 0xFFFF_FFFF,
-            edge: 0x6060_60FF,
-            edge_width: 1.5,
-            project: 0x2040_80FF,
-            task: 0x3060_A0FF,
-            person: 0x4080_40FF,
-            agent: 0x8040_80FF,
-            progress: 0xA060_20FF,
-            label: 0x1010_10FF,
-            label_size: 12.0,
-        },
-        view: ViewParams {
-            node_gap: 16.0,
-            level_gap: 72.0,
-            sizes: KindSizes {
-                project: (120.0, 32.0),
-                task: (110.0, 28.0),
-                person: (28.0, 28.0),
-                agent: (24.0, 24.0),
-                progress: (100.0, 22.0),
-            },
-        },
-        margin: 16.0,
-        text: 0x1010_10FF,
-        muted: 0x4040_40FF,
-        error: 0x9010_10FF,
-        button: 0x1040_A0FF,
-        button_text: 0xFFFF_FFFF,
-        field: 0xF0F0_F0FF,
-        title_px: 20.0,
-        body_px: 14.0,
-        line_height: 20.0,
-        button_size: (220.0, 36.0),
-        motion,
-    }
-}
-
-pub const FULL: Motion = Motion::Full(Spring {
-    stiffness: 170.0,
-    damping: 26.0,
-    rest: 0.5,
-});
 
 pub fn granted(citadel_session: bool, net_host: bool) -> Granted {
     Granted {
@@ -99,27 +60,6 @@ pub fn ctx(granted: Granted, canvas: CanvasAbi, motion: Motion) -> AppCtx {
         },
         theme: theme(motion),
         locale: "en".into(),
-    }
-}
-
-pub fn config() -> AppConfig {
-    AppConfig {
-        server: "synchronized.work".into(),
-        site_url: "https://synchronized.work".into(),
-        client_build: "sw-app@test".into(),
-        session: SessionLimits {
-            max_msg_bytes: 65536,
-            max_msgs_per_s: 8,
-        },
-        poll: PollConfig {
-            origin: "https://synchronized.work".into(),
-            max_ms: 25000,
-        },
-        notify_memory: 4,
-        rect_only: RectOnlyParams {
-            arc_segments: 4,
-            path_line_width: 1.0,
-        },
     }
 }
 

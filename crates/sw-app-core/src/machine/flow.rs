@@ -7,12 +7,12 @@ use sw_protocol::signed::SwMessage;
 use super::{App, Effect};
 use crate::fallback::PlanError;
 use crate::link::{self, LinkOutcome, LinkRecord};
-use crate::painter::TextMeasure;
+use crate::measure::HostText;
 use crate::screen::{AppError, EmptyReason, LinkScreen, Screen};
 use crate::session::HostSessionStatus;
 use crate::transport::{self, Transport};
 
-impl<M: TextMeasure> App<M> {
+impl<M: HostText> App<M> {
     pub(super) fn set(&mut self, screen: Screen) {
         if self.screen != screen {
             self.screen = screen;

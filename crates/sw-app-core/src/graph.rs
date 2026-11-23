@@ -1,14 +1,19 @@
 //! The live tree, with no layout or renderer of its own (design §7.3): the points come from
 //! `sw_view::points`, the positions from `sw_view::view_of` (which runs `sw-graph`'s tidy
 //! tree), the tree from `sw_view::tree_of`, the movement from `sw_graph::Tween` and the draw
-//! list from `sw_graph::scene`. What is added here is only where the canvas origin sits.
+//! list from `sw_graph::scene`. What is added here is only the view transform that fits the
+//! tree to the pane ([`crate::fit`]).
 
+use std::collections::BTreeMap;
 use sw_client::live::ProjectState;
-use sw_graph::{DrawOp, Motion, Pos, Tree, Tween, scene};
+
+use sw_graph::{DrawOp, GraphError, Motion, NodeSpec, Pos, Tree, Tween, scene};
 use sw_view::{ViewError, ViewGraph, points, tree_of, view_of};
 
 use crate::copy;
-use crate::ctx::AppTheme;
+use crate::ctx::{AppTheme, Size};
+use crate::fit::{self, Area, FitParams};
+use crate::painter::TextMeasure;
 
 #[derive(Debug, Clone, Default)]
 pub struct GraphView {
@@ -81,24 +86,79 @@ impl GraphView {
         self.moving
     }
 
-    /// The tree's draw list, its leftmost and topmost node inset by the theme's margin.
-    pub fn ops(&self, theme: &AppTheme) -> Vec<DrawOp> {
-        let (Some((_, tree)), Some(tween)) = (&self.graph, &self.tween) else {
-            return vec![DrawOp::Clear {
+    /// The tree's draw list fitted into `area` of a pane of `size` ([`crate::fit`]): node
+    /// shapes and edges through the transform, labels at their legible size and cut to their
+    /// node, every region at least the minimum size, inside the pane, named in full.
+    pub fn ops(
+        &self,
+        theme: &AppTheme,
+        size: Size,
+        area: Area,
+        params: &FitParams,
+        text: &dyn TextMeasure,
+    ) -> Result<Vec<DrawOp>, GraphError> {
+        let (Some((graph, tree)), Some(tween)) = (&self.graph, &self.tween) else {
+            return Ok(vec![DrawOp::Clear {
                 color: theme.graph.background,
-            }];
+            }]);
         };
-        let (half_w, half_h) = tree.nodes().iter().fold((0.0f32, 0.0f32), |(w, h), n| {
-            (w.max(n.size.0 / 2.0), h.max(n.size.1 / 2.0))
-        });
-        let at: Vec<Pos> = tween
-            .positions()
+        let rest: Vec<(Pos, (f32, f32))> = graph
+            .nodes
             .iter()
-            .map(|p| Pos {
-                x: p.x + theme.margin + half_w,
-                y: p.y + theme.margin + half_h,
+            .zip(tree.nodes())
+            .map(|(n, spec)| (Pos { x: n.x, y: n.y }, spec.size))
+            .collect();
+        let view = fit::fit(&rest, area, theme.graph.label_size, params);
+        let s = view.scale;
+        let scaled = tree
+            .nodes()
+            .iter()
+            .map(|n| NodeSpec {
+                size: (n.size.0 * s, n.size.1 * s),
+                label: view
+                    .labels
+                    .then(|| fit::truncate(&n.label, n.size.0 * s, view.label_px, text))
+                    .flatten()
+                    .unwrap_or_default(),
+                ..n.clone()
             })
             .collect();
-        scene(tree, &at, &theme.graph)
+        let at: Vec<Pos> = tween.positions().iter().map(|p| view.at(*p)).collect();
+        let mut look = theme.graph;
+        look.label_size = view.label_px;
+        let full: BTreeMap<&str, &str> = tree
+            .nodes()
+            .iter()
+            .map(|n| (n.key.as_str(), n.label.as_str()))
+            .collect();
+        let ops = scene(&Tree::new(scaled)?, &at, &look);
+        Ok(ops
+            .into_iter()
+            .filter_map(|op| match op {
+                DrawOp::FillText { text, .. } if text.is_empty() => None,
+                DrawOp::Region {
+                    id,
+                    x,
+                    y,
+                    w,
+                    h,
+                    label,
+                    role,
+                } => {
+                    let [x, y, w, h] = fit::region((x, y, w, h), params.region_min, size);
+                    let label = full.get(id.as_str()).map_or(label, |l| (*l).to_owned());
+                    Some(DrawOp::Region {
+                        id,
+                        x,
+                        y,
+                        w,
+                        h,
+                        label,
+                        role,
+                    })
+                }
+                other => Some(other),
+            })
+            .collect())
     }
 }

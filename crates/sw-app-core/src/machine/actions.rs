@@ -5,11 +5,11 @@ use sw_client::SessionPort;
 use super::{App, Effect};
 use crate::ctx::CanvasAbi;
 use crate::link;
-use crate::painter::TextMeasure;
+use crate::measure::HostText;
 use crate::screen::{AppError, LinkScreen, NextAction, Screen};
 use crate::transport::Transport;
 
-impl<M: TextMeasure> App<M> {
+impl<M: HostText> App<M> {
     fn submit(&mut self) {
         let Screen::NeedsLink(screen) = &self.screen else {
             return;

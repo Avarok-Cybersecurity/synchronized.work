@@ -10,6 +10,8 @@ use sw_protocol::payload::Notify;
 /// One host notification.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostNotify {
+    /// The `NOTIFY`'s `event_id`: the host's answer names it, so a refusal re-queues this one.
+    pub event_id: [u8; 32],
     /// The visibility-filtered subject the node chose (a hidden title stays hidden).
     pub title: String,
     pub body: String,
@@ -46,6 +48,7 @@ impl NotifyMap {
             }
         }
         Some(HostNotify {
+            event_id: n.event_id,
             title: n.subject.clone(),
             body: n.text.clone(),
             node_id: node_id.to_owned(),

@@ -111,5 +111,13 @@ pub struct AppConfig {
     pub poll: PollConfig,
     /// How many `NOTIFY` `event_id`s are remembered for de-duplication.
     pub notify_memory: usize,
+    /// How a refused host notification is retried.
+    pub notify_retry: crate::notify_retry::NotifyRetry,
     pub rect_only: crate::painter::RectOnlyParams,
+    /// The App's own ceiling on host calls, under the manifest's `max_call_rate_per_s`.
+    pub host_calls: crate::pace::HostCallBudget,
+    /// The width cache every measurement goes through.
+    pub measure: crate::measure::MeasureParams,
+    /// What fitting the tree to the pane may not take away.
+    pub fit: crate::fit::FitParams,
 }

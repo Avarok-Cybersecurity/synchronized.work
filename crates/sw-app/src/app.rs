@@ -7,18 +7,18 @@ use citadel_app_sdk::types::calls::EventKind;
 use citadel_app_sdk::{App, AppContext, AppEvent, CloseContext, CloseReason, InitFailure};
 use citadel_app_sdk::{Refused, SuspendReason};
 use citadel_app_sdk::{canvas, clipboard, events, log, notify, session, storage, ui};
-use sw_app_core::{App as Core, Effect, Input, TextMeasure};
+use sw_app_core::{App as Core, Effect, HostText, Input};
 
 use crate::map::{self, reason_of};
 use crate::{config, context};
 
-/// `canvas.MeasureText`, the core's [`TextMeasure`].
+/// `canvas.MeasureText`, the core's [`HostText`] (the core caches and estimates).
 #[derive(Debug, Clone, Copy)]
 pub struct HostMeasure;
 
-impl TextMeasure for HostMeasure {
-    fn width(&self, text: &str, px: f32) -> f32 {
-        canvas::text_width(text, px).unwrap_or_else(|_| config::refused_measure(text, px))
+impl HostText for HostMeasure {
+    fn measure(&self, text: &str, px: f32) -> Option<f32> {
+        canvas::text_width(text, px).ok()
     }
 }
 
@@ -94,12 +94,16 @@ impl SwApp {
                 }
             },
             Effect::HostFetchOpen(get) => crate::fetch::open(self, get),
-            Effect::Notify(n) => notify::notify(&n.title, &n.body)
-                .then(|_: &mut SwApp, r| r.err().iter().for_each(|e| warn("notify", e))),
+            Effect::Notify(n) => {
+                let event_id = n.event_id;
+                notify::notify(&n.title, &n.body)
+                    .then(move |app: &mut SwApp, r| app.feed(map::notify_reply(event_id, &r)))
+            }
+            // The core draws the current state again on the next frame.
             Effect::Draw(commands) => {
                 let commands = commands.into_iter().map(map::draw_command_of).collect();
-                if let Err(e) = canvas::draw(commands) {
-                    warn("canvas draw", &e);
+                if let Some(input) = map::draw_reply(&canvas::draw(commands)) {
+                    self.feed(input);
                 }
             }
             Effect::RequestFrames { on } => events::request_frames(on)

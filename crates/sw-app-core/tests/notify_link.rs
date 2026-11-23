@@ -31,6 +31,7 @@ fn a_notify_is_one_host_notification_targeting_the_apps_node() {
     assert_eq!(
         map.map(&n(1), NODE),
         Some(HostNotify {
+            event_id: [1; 32],
             title: "Ship it".into(),
             body: "bob joined Ship it".into(),
             node_id: NODE.into(),

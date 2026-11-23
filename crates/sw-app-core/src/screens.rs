@@ -11,6 +11,8 @@ use crate::painter::TextMeasure;
 use crate::screen::{EmptyReason, LinkScreen, NextAction, Screen};
 use crate::wrap::wrap;
 
+pub use crate::composer::{Composer, composer_footer};
+
 struct Column<'t> {
     theme: &'t AppTheme,
     measure: &'t dyn TextMeasure,
@@ -134,7 +136,7 @@ impl<'t> Column<'t> {
     }
 }
 
-fn inner_width(theme: &AppTheme, size: Size) -> f32 {
+pub(crate) fn inner_width(theme: &AppTheme, size: Size) -> f32 {
     (size.width - 2.0 * theme.margin).max(0.0)
 }
 
@@ -190,55 +192,6 @@ pub fn ops(
     }
     c.buttons(&screen.actions());
     c.ops
-}
-
-/// The prompt composer (design §7.5): read-only until this browser holds a Controller key
-/// paired with `sw-mcp trust`. Sending prompts is not part of this crate yet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Composer {
-    ReadOnly,
-    Paired,
-}
-
-impl Composer {
-    pub fn new(controller_paired: bool) -> Self {
-        if controller_paired {
-            Self::Paired
-        } else {
-            Self::ReadOnly
-        }
-    }
-}
-
-/// The live tree's footer: what the composer may do, wrapped, its last line at the bottom.
-pub fn composer_footer(
-    composer: Composer,
-    theme: &AppTheme,
-    size: Size,
-    measure: &dyn TextMeasure,
-) -> Vec<DrawOp> {
-    if composer != Composer::ReadOnly {
-        return Vec::new();
-    }
-    let lines = wrap(
-        copy::COMPOSER_READ_ONLY,
-        theme.body_px,
-        inner_width(theme, size),
-        measure,
-    );
-    let bottom = size.height - theme.margin;
-    let rows = lines.len();
-    lines
-        .into_iter()
-        .enumerate()
-        .map(|(i, text)| DrawOp::FillText {
-            x: theme.margin,
-            y: bottom - (rows - 1 - i) as f32 * theme.line_height,
-            text,
-            size: theme.body_px,
-            color: theme.muted,
-        })
-        .collect()
 }
 
 fn own(lines: &[&str]) -> Vec<String> {

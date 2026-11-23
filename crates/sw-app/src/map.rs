@@ -172,6 +172,19 @@ pub fn input_of(event: AppEvent, session: Option<u32>) -> Option<Input> {
     }
 }
 
+/// A `CanvasDraw` answer: a refusal is the core's to retry (`None`: the host took the frame).
+pub fn draw_reply<T>(reply: &Result<T, Refused>) -> Option<Input> {
+    reply.is_err().then_some(Input::DrawRefused)
+}
+
+/// A `Notify` answer, for the notification of `event_id`.
+pub fn notify_reply<T>(event_id: [u8; 32], reply: &Result<T, Refused>) -> Input {
+    match reply {
+        Ok(_) => Input::NotifyDelivered { event_id },
+        Err(_) => Input::NotifyRefused { event_id },
+    }
+}
+
 pub fn frame_input(dt_ms: u32) -> Input {
     Input::Frame {
         dt_ms: dt_ms as f32,

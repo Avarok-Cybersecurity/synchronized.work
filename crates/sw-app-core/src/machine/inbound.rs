@@ -9,7 +9,7 @@ use sw_protocol::signed::SwMessage;
 
 use super::{App, Effect};
 use crate::link;
-use crate::painter::TextMeasure;
+use crate::measure::HostText;
 use crate::screen::{AppError, EmptyReason, Screen};
 use crate::transport::Transport;
 
@@ -29,7 +29,7 @@ fn drain(port: &mut dyn SessionPort) -> Result<Vec<SwMessage>, AppError> {
     }
 }
 
-impl<M: TextMeasure> App<M> {
+impl<M: HostText> App<M> {
     pub(super) fn session_message(&mut self, body: Vec<u8>, out: &mut Vec<Effect>) {
         if self.session.message(body).is_err() {
             return self.fail(AppError::Wire);
@@ -68,7 +68,7 @@ impl<M: TextMeasure> App<M> {
                     if self.ctx.granted.notifications
                         && let Some(note) = self.notify.map(n, &self.ctx.node_id)
                     {
-                        out.push(Effect::Notify(note));
+                        self.queue_notify(note);
                     }
                     continue;
                 }
@@ -113,13 +113,6 @@ impl<M: TextMeasure> App<M> {
             Err(e) => self.fail(AppError::Tree {
                 reason: format!("{e:?}"),
             }),
-        }
-    }
-
-    pub(super) fn frame_tick(&mut self, dt_ms: f32) {
-        if self.screen == Screen::Live && self.graph.is_moving() {
-            self.graph.step(dt_ms, self.ctx.theme.motion);
-            self.dirty = true;
         }
     }
 }

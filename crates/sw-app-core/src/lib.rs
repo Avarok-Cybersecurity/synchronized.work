@@ -3,8 +3,9 @@
 //! next action), the transport (CW-6 `citadel.session`, or the `net.host` long-poll), the
 //! mapping of `NOTIFY` to host notifications, link-code redemption, and the two painters over
 //! `sw-graph`'s one draw list. The host is reached only through what [`App::handle`] returns
-//! ([`Effect`]) and what the binding feeds it ([`Input`]), plus the [`TextMeasure`] port; the
-//! `sw-app` binding maps those 1:1 onto `citadel-app-sdk`.
+//! ([`Effect`]) and what the binding feeds it ([`Input`]), plus the [`HostText`] port (every
+//! width through one cache, [`measure`]), all within the App's own host-call budget
+//! ([`pace`]); the `sw-app` binding maps those 1:1 onto `citadel-app-sdk`.
 //!
 //! No layout, renderer or fold of its own: points, layout and the tree are `sw-view`'s, the
 //! movement and the draw list `sw-graph`'s, the fold `sw-client`'s `LiveProject`. The App
@@ -12,13 +13,18 @@
 //! gains them, are `sw-protocol`'s ML-DSA-65 / ML-KEM-1024.
 
 pub mod command;
+pub mod composer;
 pub mod copy;
 pub mod ctx;
 pub mod fallback;
+pub mod fit;
 pub mod graph;
 pub mod link;
 mod machine;
+pub mod measure;
 pub mod notify;
+pub mod notify_retry;
+pub mod pace;
 pub mod painter;
 pub mod refusal;
 pub mod screen;
@@ -32,6 +38,7 @@ pub use ctx::{
     AppConfig, AppCtx, AppTheme, CanvasAbi, Granted, PollConfig, Scope, SessionLimits, Size,
 };
 pub use machine::{App, Effect, Input};
+pub use measure::HostText;
 pub use painter::{
     CitadelPainter, Frame, FrameError, FrameRegion, RectOnlyPainter, RectOnlyParams, TextMeasure,
 };

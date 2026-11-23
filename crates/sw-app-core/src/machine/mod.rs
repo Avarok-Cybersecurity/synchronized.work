@@ -4,119 +4,37 @@
 
 mod actions;
 mod draw;
+mod finish;
 mod flow;
 mod inbound;
+mod types;
+
+pub use types::{Effect, Input};
+
+use std::collections::VecDeque;
 
 use sw_client::live::LiveProject;
-use sw_model::Cid;
 
-use crate::command::DrawCommand;
-use crate::ctx::{AppConfig, AppCtx, Size};
-use crate::fallback::{FallbackPort, HttpGet};
+use crate::ctx::{AppConfig, AppCtx};
+use crate::fallback::FallbackPort;
 use crate::graph::GraphView;
 use crate::link::LinkRecord;
-use crate::notify::{HostNotify, NotifyMap};
-use crate::painter::{Frame, TextMeasure};
+use crate::measure::{HostText, MeasureCache};
+use crate::notify::NotifyMap;
+use crate::notify_retry::NotifyQueue;
+use crate::pace::Ledger;
+use crate::painter::Frame;
 use crate::screen::Screen;
 use crate::screens::Composer;
-use crate::session::{HostSessionStatus, PushedSession};
+use crate::session::PushedSession;
 use crate::transport::Transport;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Input {
-    /// The `storage.user` value under `link::storage_key(node_id)` (`None`: absent).
-    LinkLoaded {
-        record: Option<Vec<u8>>,
-    },
-    StorageFailed {
-        reason: String,
-    },
-    /// The `SessionOpen` reply.
-    SessionOpened {
-        cid: Cid,
-        status: HostSessionStatus,
-    },
-    /// `SessionEvent::State`.
-    SessionState {
-        status: HostSessionStatus,
-    },
-    /// `SessionEvent::Message`.
-    SessionMessage {
-        body: Vec<u8>,
-    },
-    /// `SessionOpen` refused, or `AppSessionFailure { reason }` (e.g. `no_identity`).
-    SessionOpenFailed {
-        reason: String,
-    },
-    /// The `HostFetchOpen` stream, read to its end.
-    HttpResponse {
-        status: u16,
-        body: Vec<u8>,
-    },
-    HttpFailed {
-        reason: String,
-    },
-    /// `AppEvent::Activate { id }` (CW-5 hosts).
-    Activate {
-        id: String,
-    },
-    /// A primary-button pointer release at canvas coordinates (hit-tested on ABI-1 hosts).
-    PointerUp {
-        x: f32,
-        y: f32,
-    },
-    /// `KeyEvent.key` of a key press.
-    Key {
-        key: String,
-    },
-    Frame {
-        dt_ms: f32,
-    },
-    Resize {
-        size: Size,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Effect {
-    ReadUserStorage {
-        key: String,
-    },
-    WriteUserStorage {
-        key: String,
-        value: Vec<u8>,
-    },
-    /// `SessionOpen { server }`; a second open of the same server returns the same session.
-    SessionOpen {
-        server: String,
-    },
-    /// `SessionSend` on the open session.
-    SessionSend {
-        body: Vec<u8>,
-    },
-    /// `HostFetchOpen` (`GET`, empty body), read with `NetStreamRead` to its end.
-    HostFetchOpen(HttpGet),
-    Notify(HostNotify),
-    /// One `CanvasDraw`.
-    Draw(Vec<DrawCommand>),
-    RequestFrames {
-        on: bool,
-    },
-    /// `ClipboardWriteText` (the activation is the user gesture it needs).
-    CopyText {
-        text: String,
-    },
-    /// A screen that is not the tree could not be drawn: a defect, for the host's log.
-    Fault {
-        reason: String,
-    },
-}
 
 #[derive(Debug)]
 pub struct App<M> {
     ctx: AppCtx,
     config: AppConfig,
-    measure: M,
+    /// Every width, through one cache.
+    text: MeasureCache<M>,
     screen: Screen,
     transport: Option<Transport>,
     session: PushedSession,
@@ -128,21 +46,38 @@ pub struct App<M> {
     link: Option<Option<LinkRecord>>,
     live: Option<LiveProject>,
     notify: NotifyMap,
+    notices: NotifyQueue,
     graph: GraphView,
     composer: Composer,
+    /// The frame the host shows (hit-testing and `Activate` resolve against it).
     frame: Option<Frame>,
+    /// The frame before the last one sent, while the host may still refuse that one.
+    before: Option<Option<Frame>>,
+    /// The host calls of the current window, and frame time.
+    ledger: Ledger,
+    /// Host calls decided but not yet within the budget, in order.
+    deferred: VecDeque<Effect>,
+    /// Whether frames are on.
     animating: bool,
+    /// The screen changed since the last frame the host took.
     dirty: bool,
+    /// The host refused the last draw: it is drawn again on the next frame.
+    refused: bool,
 }
 
-impl<M: TextMeasure> App<M> {
+impl<M: HostText> App<M> {
     pub fn new(ctx: AppCtx, config: AppConfig, measure: M) -> Self {
         Self {
             session: PushedSession::new(config.session),
             notify: NotifyMap::new(config.notify_memory),
+            notices: NotifyQueue::new(config.notify_retry),
+            text: MeasureCache::new(measure, config.measure),
+            ledger: Ledger::new(config.host_calls),
+            deferred: VecDeque::new(),
+            before: None,
+            refused: false,
             ctx,
             config,
-            measure,
             screen: Screen::Connecting,
             transport: None,
             fallback: FallbackPort::new(),
@@ -179,9 +114,14 @@ impl<M: TextMeasure> App<M> {
         self.live.as_ref()
     }
 
-    /// The last frame drawn.
+    /// The last frame drawn (and not refused).
     pub fn frame(&self) -> Option<&Frame> {
         self.frame.as_ref()
+    }
+
+    /// The widths measured so far.
+    pub fn text(&self) -> &MeasureCache<M> {
+        &self.text
     }
 
     /// After `app_init`: choose the transport, read the saved link, open the session.
@@ -220,26 +160,10 @@ impl<M: TextMeasure> App<M> {
                 self.ctx.size = size;
                 self.dirty = true;
             }
+            Input::DrawRefused => self.draw_refused(),
+            Input::NotifyDelivered { event_id } => self.notices.delivered(&event_id),
+            Input::NotifyRefused { event_id } => self.notify_refused(&event_id),
         }
         self.finish(out)
-    }
-
-    /// Sends queue before the frame that shows their result.
-    fn finish(&mut self, mut out: Vec<Effect>) -> Vec<Effect> {
-        out.extend(
-            self.session
-                .take_outbox()
-                .into_iter()
-                .map(|body| Effect::SessionSend { body }),
-        );
-        if std::mem::take(&mut self.dirty) {
-            self.draw(&mut out);
-        }
-        let want = self.screen == Screen::Live && self.graph.is_moving();
-        if want != self.animating {
-            self.animating = want;
-            out.push(Effect::RequestFrames { on: want });
-        }
-        out
     }
 }

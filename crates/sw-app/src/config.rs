@@ -1,7 +1,11 @@
 //! Every value the App runs with that is not the host's (PCND: one module, each stated). The
 //! manifest in citadel-workspace (`apps/first-party/synchronized-work/manifest.json`) states the
-//! same id, server, host and session limits; a test there fails when the two differ.
+//! same id, server, host, session limits and call rate; a test there fails when the two differ.
 
+use sw_app_core::fit::FitParams;
+use sw_app_core::measure::MeasureParams;
+use sw_app_core::notify_retry::NotifyRetry;
+use sw_app_core::pace::HostCallBudget;
 use sw_app_core::painter::RectOnlyParams;
 use sw_app_core::{AppConfig, PollConfig, SessionLimits};
 use sw_graph::Spring;
@@ -40,6 +44,34 @@ pub const STREAM_READ_BYTES: u32 = 65536;
 pub const STREAM_MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
 /// When the host refuses `MeasureText`, a label is taken to be this many `px` per character.
 pub const MEASURE_REFUSED_EM: f32 = 0.6;
+/// Widths remembered by the core's cache (each `(text, px)` is measured once). The screens'
+/// copy and a tree's labels and their cut prefixes come to a few hundred.
+pub const MEASURE_CACHE: usize = 1024;
+
+/// The manifest's `limits.max_call_rate_per_s`: the host's limit on all of the App's calls.
+pub const MAX_CALL_RATE_PER_S: u32 = 120;
+/// The App's own ceiling, two thirds of the manifest's: the other third is for the calls the
+/// binding makes itself (stream reads, the event subscription, log lines). Draws and measures
+/// stop 16 short of it, so sends and notifications always find room; 64 a second still draws
+/// every frame of a 60 Hz animation.
+pub const HOST_CALLS: HostCallBudget = HostCallBudget {
+    per_s: 80,
+    reserve: 16,
+};
+/// A notification the host refused is tried again a second later (the host's call budget has
+/// refilled by then), five times in all, at most 16 held at once.
+pub const NOTIFY_RETRY: NotifyRetry = NotifyRetry {
+    queue: 16,
+    attempts: 5,
+    spacing_ms: 1000.0,
+};
+/// Fitting the tree to the pane: labels no smaller than 11 px; every node's hit region at least
+/// 24 x 24 CSS px (WCAG 2.2 target size, minimum).
+pub const FIT: FitParams = FitParams {
+    label_min_px: 11.0,
+    label_descent_em: 0.25,
+    region_min: (24.0, 24.0),
+};
 
 /// The tree's sizes and gaps: the site's (`site/src/view/params.json`, which a test compares
 /// with these), so the App and the site lay the tree out alike.
@@ -143,11 +175,13 @@ pub fn app_config() -> AppConfig {
             max_ms: POLL_MAX_MS,
         },
         notify_memory: NOTIFY_MEMORY,
+        notify_retry: NOTIFY_RETRY,
         rect_only: RECT_ONLY,
+        host_calls: HOST_CALLS,
+        measure: MeasureParams {
+            capacity: MEASURE_CACHE,
+            estimate_em: MEASURE_REFUSED_EM,
+        },
+        fit: FIT,
     }
-}
-
-/// A label's width when the host refused to measure it.
-pub fn refused_measure(text: &str, px: f32) -> f32 {
-    text.chars().count() as f32 * px * MEASURE_REFUSED_EM
 }
