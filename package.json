@@ -1,8 +1,12 @@
 {
   "name": "synchronized-work",
   "private": true,
-  "//": "wrangler only: the Worker is Rust (workers-rs). Pinned like the tenant Worker's.",
+  "//": "wrangler only: the Worker is Rust (workers-rs). Pinned like the tenant Worker's. overrides: wrangler 4.136.3 brings a miniflare that pins undici 7.29.0 and sharp 0.35.4 exactly; drop both when wrangler moves to one whose miniflare has undici 7.30.1+ and sharp 0.35.5.",
   "devDependencies": {
     "wrangler": "4.136.3"
+  },
+  "overrides": {
+    "undici": "7.30.2",
+    "sharp": "0.35.5"
   }
 }
