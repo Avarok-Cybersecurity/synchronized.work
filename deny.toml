@@ -25,9 +25,8 @@ ignore = [
     # chrono is flagged unmaintained (advisory published 2026-11-17); reached via the SDK's
     # citadel_proto and via workers-rs (worker 0.8.7). No vulnerability; needs both to move off it.
     { id = "RUSTSEC-2026-0543", reason = "SDK's citadel_proto and workers-rs -> chrono; unmaintained only" },
-    # sw-mcp's tree (design §9). rmcp 0.16 is built with `server` + `transport-io` only:
+    # sw-mcp's tree (design §9). rmcp is built with `server` + `transport-io` only:
     # stdio, never HTTP, never a socket, so its HTTP transports' advisories cannot reach it.
-    { id = "RUSTSEC-2026-0189", reason = "rmcp HTTP server transport not compiled (stdio only)" },
     { id = "RUSTSEC-2026-0462", reason = "rmcp HTTP client transport not compiled (stdio only)" },
     # Reached through the native SDK build sw-mcp uses; unmaintained only.
     { id = "RUSTSEC-2023-0089", reason = "atomic-polyfill unmaintained, inside the pinned SDK" },
